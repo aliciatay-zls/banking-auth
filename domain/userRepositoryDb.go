@@ -1,10 +1,10 @@
 package domain
 
 import (
-	"github.com/aliciatay-zls/banking/errs"
-	"github.com/aliciatay-zls/banking/logger"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jmoiron/sqlx"
+	"github.com/udemy-go-1/banking-lib/errs"
+	"github.com/udemy-go-1/banking-lib/logger"
 )
 
 type UserRepositoryDb struct { //DB (adapter)

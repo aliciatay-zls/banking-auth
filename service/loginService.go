@@ -1,9 +1,9 @@
 package service
 
 import (
-	"banking-auth/domain"
-	"banking-auth/dto"
-	"github.com/aliciatay-zls/banking/errs"
+	"github.com/udemy-go-1/banking-auth/domain"
+	"github.com/udemy-go-1/banking-auth/dto"
+	"github.com/udemy-go-1/banking-lib/errs"
 )
 
 type LoginService interface { //service (primary port)

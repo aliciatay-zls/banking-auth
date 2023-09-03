@@ -2,8 +2,8 @@ package domain
 
 import (
 	"database/sql"
-	"github.com/aliciatay-zls/banking/errs"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/udemy-go-1/banking-lib/errs"
 	"time"
 )
 

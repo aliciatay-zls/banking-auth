@@ -1,9 +1,9 @@
 package app
 
 import (
-	"banking-auth/dto"
-	"banking-auth/service"
 	"encoding/json"
+	"github.com/udemy-go-1/banking-auth/dto"
+	"github.com/udemy-go-1/banking-auth/service"
 	"net/http"
 )
 

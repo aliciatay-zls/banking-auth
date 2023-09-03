@@ -1,8 +1,8 @@
 package main
 
 import (
-	"banking-auth/app"
-	"github.com/aliciatay-zls/banking/logger"
+	"github.com/udemy-go-1/banking-auth/app"
+	"github.com/udemy-go-1/banking-lib/logger"
 )
 
 func main() {
