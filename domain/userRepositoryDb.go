@@ -21,16 +21,14 @@ func (d UserRepositoryDb) Authenticate(username string, password string) (*User,
 		return nil, appErr
 	}
 
-	getDetailsSql := `SELECT u.role, u.customer_id, GROUP_CONCAT(a.account_id) 
+	var user User
+	getDetailsSql := `SELECT u.username, u.role, u.customer_id, GROUP_CONCAT(a.account_id) AS account_numbers
 					FROM users u LEFT JOIN accounts a ON u.customer_id = a.customer_id 
                     WHERE u.username = ? AND u.password = ?
                     GROUP BY u.customer_id`
-	row := d.client.QueryRow(getDetailsSql, username, password)
-
-	user := User{Username: username, Password: password}
-	err := row.Scan(&user.Role, &user.CustomerId, &user.AllAccountIds)
+	err := d.client.Get(&user, getDetailsSql, username, password)
 	if err != nil {
-		logger.Error("Error while scanning details of user: " + err.Error())
+		logger.Error("Error while querying/scanning details of user: " + err.Error())
 		return nil, errs.NewUnexpectedError("Unexpected database error")
 	}
 

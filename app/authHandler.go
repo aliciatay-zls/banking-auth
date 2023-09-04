@@ -4,18 +4,19 @@ import (
 	"encoding/json"
 	"github.com/udemy-go-1/banking-auth/dto"
 	"github.com/udemy-go-1/banking-auth/service"
+	"github.com/udemy-go-1/banking-lib/logger"
 	"net/http"
 )
 
-type LoginHandler struct { //REST handler (adapter)
+type AuthHandler struct { //REST handler (adapter)
 	service service.LoginService //REST handler depends on service (service is a field)
 }
 
-func (h LoginHandler) AuthHandler(w http.ResponseWriter, r *http.Request) {
+func (h AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	loginRequestDTO := dto.LoginRequestDTO{}
 
-	err := json.NewDecoder(r.Body).Decode(&loginRequestDTO)
-	if err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&loginRequestDTO); err != nil {
+		logger.Error("Error while decoding json body of login request: " + err.Error())
 		writeJsonResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}

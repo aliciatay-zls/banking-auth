@@ -9,10 +9,9 @@ import (
 
 type User struct { //business/domain object
 	Username      string         `db:"username"`
-	Password      string         `db:"password"`
 	Role          string         `db:"role"`
 	CustomerId    sql.NullString `db:"customer_id"`
-	AllAccountIds sql.NullString
+	AllAccountIds sql.NullString `db:"account_numbers"`
 }
 
 type UserRepository interface { //repo (secondary port)

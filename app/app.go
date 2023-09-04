@@ -37,9 +37,9 @@ func Start() {
 	router := mux.NewRouter()
 
 	dbClient := getDbClient()
-	lh := LoginHandler{service.NewDefaultLoginService(domain.NewUserRepositoryDb(dbClient))}
+	ah := AuthHandler{service.NewDefaultLoginService(domain.NewUserRepositoryDb(dbClient))}
 
-	router.HandleFunc("/auth/login", lh.AuthHandler).Methods(http.MethodPost)
+	router.HandleFunc("/auth/login", ah.LoginHandler).Methods(http.MethodPost)
 
 	address := os.Getenv("SERVER_ADDRESS")
 	port := os.Getenv("SERVER_PORT")
