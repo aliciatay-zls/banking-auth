@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+const SECRET = "hmacSampleSecret" //to store elsewhere
+
 func checkEnvVars() {
 	envVars := []string{
 		"SERVER_ADDRESS",
@@ -40,6 +42,7 @@ func Start() {
 	ah := AuthHandler{service.NewDefaultLoginService(domain.NewUserRepositoryDb(dbClient))}
 
 	router.HandleFunc("/auth/login", ah.LoginHandler).Methods(http.MethodPost)
+	router.HandleFunc("/auth/verify", ah.VerificationHandler).Methods(http.MethodGet)
 
 	address := os.Getenv("SERVER_ADDRESS")
 	port := os.Getenv("SERVER_PORT")
