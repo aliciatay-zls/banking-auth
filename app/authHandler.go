@@ -2,15 +2,11 @@ package app
 
 import (
 	"encoding/json"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/udemy-go-1/banking-auth/domain"
 	"github.com/udemy-go-1/banking-auth/dto"
 	"github.com/udemy-go-1/banking-auth/service"
-	"github.com/udemy-go-1/banking-lib/errs"
 	"github.com/udemy-go-1/banking-lib/logger"
 	"net/http"
-	"strings"
-	"time"
 )
 
 type AuthHandler struct { //REST handler (adapter)
@@ -36,90 +32,45 @@ func (h AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request) {
+	//verify validity of the token: verify signature
 	tokenString := r.URL.Query().Get("token")
-	if tokenString == "" {
-		logger.Error("No token in url")
-		newErr := errs.NewUnexpectedError("Unexpected authentication error")
-		writeTextResponse(w, newErr.Code, newErr.Message)
-		return
-	}
-
-	//verify validity of the token: verify expiry + verify signature
-	claims := domain.CustomClaims{}
-	token, err := jwt.ParseWithClaims(tokenString,
-		&claims,
-		func(t *jwt.Token) (interface{}, error) {
-			return []byte(domain.SECRET), nil
-		},
-		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}), //same as checking if Method==alg inside keyFunc?
-	)
+	t, err := domain.GetValidToken(tokenString)
 	if err != nil {
-		logger.Error("Error while parsing token: " + err.Error())
-		newErr := errs.NewUnexpectedError("Unexpected authentication error")
-		writeTextResponse(w, newErr.Code, newErr.Message)
-		return
-	}
-	if !token.Valid {
-		logger.Error("Invalid token")
-		newErr := errs.NewAuthenticationError("Token is invalid")
-		writeTextResponse(w, newErr.Code, newErr.Message)
+		writeTextResponse(w, err.Code, err.Message)
 		return
 	}
 
-	date, err := claims.GetExpirationTime() //registered claims
-	if err != nil {
-		logger.Error("Error while getting parsed token's expiry time: " + err.Error())
-		newErr := errs.NewUnexpectedError("Unexpected authentication error")
-		writeTextResponse(w, newErr.Code, newErr.Message)
-		return
-	}
-	if !date.Time.After(time.Now()) { //token expiry date is before or at current time = expired
-		logger.Error("Expired token")
-		newErr := errs.NewAuthenticationError("Token has expired")
-		writeTextResponse(w, newErr.Code, newErr.Message)
+	//verify validity of the token: verify expiry
+	isTokenExpired, appErr := t.IsExpired()
+	if isTokenExpired || appErr != nil {
+		writeTextResponse(w, appErr.Code, appErr.Message)
 		return
 	}
 
-	//admin can access all routes (get role from token Body) //public claims "customer_id", "role", etc
-	if claims.Role == "admin" {
+	//admin can access all routes (get role from token Body)
+	if t.CustomClaims.IsRoleAdmin() {
 		writeTextResponse(w, http.StatusOK, "Admin can access all routes")
-	} else if claims.Role == "user" {
-		//user can only access some routes
-		route := r.URL.Query().Get("route_name")
-		if route == "GetAllCustomers" || route == "NewAccount" {
-			logger.Error("User trying to access admin-only routes")
-			newErr := errs.NewAuthenticationError("Access denied")
-			writeTextResponse(w, newErr.Code, newErr.Message)
-			return
-		}
-
-		//user can only access his own routes (get customer_id from token Body)
-		customerIdRouteVar := r.URL.Query().Get("customer_id")
-		customerIdClaim := claims.CustomerId
-		if route == "GetCustomer" {
-			if customerIdRouteVar != customerIdClaim {
-				logger.Error("User trying to access another customer's details")
-				newErr := errs.NewAuthenticationError("Access denied")
-				writeTextResponse(w, newErr.Code, newErr.Message)
-				return
-			}
-		} else if route == "NewTransaction" {
-			accountIdRouteVar := r.URL.Query().Get("account_id")
-			accountIdClaim := strings.Split(claims.AllAccountIds, ",")
-			for _, accountId := range accountIdClaim {
-				if accountIdRouteVar == accountId {
-					writeTextResponse(w, http.StatusOK, "User can access new transaction route for himself")
-					return
-				}
-			}
-			logger.Error("User trying to make transaction for another customer's account")
-			newErr := errs.NewAuthenticationError("Access denied")
-			writeTextResponse(w, newErr.Code, newErr.Message)
-		}
-	} else {
-		newErr := errs.NewAuthenticationError("Unknown role")
-		writeTextResponse(w, newErr.Code, newErr.Message)
+		return
 	}
+
+	//user can only access some routes
+	route := r.URL.Query().Get("route_name")
+	isRouteForbidden, appErr := t.CustomClaims.IsForbidden(route)
+	if isRouteForbidden || appErr != nil {
+		writeTextResponse(w, appErr.Code, appErr.Message)
+		return
+	}
+
+	//user can only access his own routes (get customer_id from token Body)
+	customerId := r.URL.Query().Get("customer_id")
+	accountId := r.URL.Query().Get("account_id")
+	hasMismatch, appErr := t.CustomClaims.HasMismatch(route, customerId, accountId)
+	if hasMismatch || appErr != nil {
+		writeTextResponse(w, appErr.Code, appErr.Message)
+		return
+	}
+
+	writeTextResponse(w, http.StatusOK, "Client is authorized to access this route")
 }
 
 func writeTextResponse(w http.ResponseWriter, code int, msg string) {
@@ -140,3 +91,8 @@ func writeTextResponse(w http.ResponseWriter, code int, msg string) {
 //The function receives the parsed, but unverified Token. This allows you to use properties in the Header of the token
 //(such as `kid`) to identify which key to use. --> in the case where our app allows multiple signing algos
 //https://pkg.go.dev/github.com/golang-jwt/jwt/v5@v5.0.0#Keyfunc
+//
+//jwt.ParseWithClaims(): verify signing method, keyFunc passed in, signature, claims passed in
+//hence no need to verify signing method and signature after this call already (if managed to return jwt.Token,
+//means valid so far)
+//https://github.com/golang-jwt/jwt/blob/v5.0.0/parser.go#L55
