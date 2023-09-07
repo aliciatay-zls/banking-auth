@@ -13,8 +13,6 @@ import (
 	"time"
 )
 
-const SECRET = "hmacSampleSecret" //to store elsewhere
-
 func checkEnvVars() {
 	envVars := []string{
 		"SERVER_ADDRESS",

@@ -3,12 +3,13 @@ package app
 import (
 	"encoding/json"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/udemy-go-1/banking-auth/domain"
 	"github.com/udemy-go-1/banking-auth/dto"
 	"github.com/udemy-go-1/banking-auth/service"
 	"github.com/udemy-go-1/banking-lib/errs"
 	"github.com/udemy-go-1/banking-lib/logger"
-	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -21,58 +22,110 @@ func (h AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewDecoder(r.Body).Decode(&loginRequestDTO); err != nil {
 		logger.Error("Error while decoding json body of login request: " + err.Error())
-		writeJsonResponse(w, http.StatusBadRequest, err.Error())
+		writeTextResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	token, appErr := h.service.Login(loginRequestDTO)
 	if appErr != nil {
-		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
+		writeTextResponse(w, appErr.Code, appErr.Message)
 		return
 	}
 
-	writeJsonResponse(w, http.StatusOK, token)
+	writeTextResponse(w, http.StatusOK, token)
 }
 
 func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("pinged from banking")
-	//writeJsonResponse(w, http.StatusOK, "successfully pinged auth from banking")
+	tokenString := r.URL.Query().Get("token")
+	if tokenString == "" {
+		logger.Error("No token in url")
+		newErr := errs.NewUnexpectedError("Unexpected authentication error")
+		writeTextResponse(w, newErr.Code, newErr.Message)
+		return
+	}
 
 	//verify validity of the token: verify expiry + verify signature
-	tokenString := r.URL.Query().Get("token")
-	token, err := jwt.Parse(tokenString,
+	claims := domain.CustomClaims{}
+	token, err := jwt.ParseWithClaims(tokenString,
+		&claims,
 		func(t *jwt.Token) (interface{}, error) {
-			return []byte(SECRET), nil
+			return []byte(domain.SECRET), nil
 		},
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}), //same as checking if Method==alg inside keyFunc?
 	)
+	if err != nil {
+		logger.Error("Error while parsing token: " + err.Error())
+		newErr := errs.NewUnexpectedError("Unexpected authentication error")
+		writeTextResponse(w, newErr.Code, newErr.Message)
+		return
+	}
 	if !token.Valid {
-		logger.Error("Invalid token: " + err.Error())
-		errs.NewAuthenticationError("Token is invalid")
+		logger.Error("Invalid token")
+		newErr := errs.NewAuthenticationError("Token is invalid")
+		writeTextResponse(w, newErr.Code, newErr.Message)
+		return
 	}
 
-	date, err := token.Claims.GetExpirationTime() //registered claims
+	date, err := claims.GetExpirationTime() //registered claims
 	if err != nil {
 		logger.Error("Error while getting parsed token's expiry time: " + err.Error())
-		errs.NewUnexpectedError("Unexpected authentication error")
+		newErr := errs.NewUnexpectedError("Unexpected authentication error")
+		writeTextResponse(w, newErr.Code, newErr.Message)
+		return
 	}
-	if date.Time.After(time.Now()) {
+	if !date.Time.After(time.Now()) { //token expiry date is before or at current time = expired
 		logger.Error("Expired token")
-		errs.NewAuthenticationError("Token has expired")
+		newErr := errs.NewAuthenticationError("Token has expired")
+		writeTextResponse(w, newErr.Code, newErr.Message)
+		return
 	}
 
-	//admin can access all routes (get role from token Body) //public claims
+	//admin can access all routes (get role from token Body) //public claims "customer_id", "role", etc
+	if claims.Role == "admin" {
+		writeTextResponse(w, http.StatusOK, "Admin can access all routes")
+	} else if claims.Role == "user" {
+		//user can only access some routes
+		route := r.URL.Query().Get("route_name")
+		if route == "GetAllCustomers" || route == "NewAccount" {
+			logger.Error("User trying to access admin-only routes")
+			newErr := errs.NewAuthenticationError("Access denied")
+			writeTextResponse(w, newErr.Code, newErr.Message)
+			return
+		}
 
-	//user can only access some routes
-
-	//user can only access his own routes (get customer_id from token Body)
+		//user can only access his own routes (get customer_id from token Body)
+		customerIdRouteVar := r.URL.Query().Get("customer_id")
+		customerIdClaim := claims.CustomerId
+		if route == "GetCustomer" {
+			if customerIdRouteVar != customerIdClaim {
+				logger.Error("User trying to access another customer's details")
+				newErr := errs.NewAuthenticationError("Access denied")
+				writeTextResponse(w, newErr.Code, newErr.Message)
+				return
+			}
+		} else if route == "NewTransaction" {
+			accountIdRouteVar := r.URL.Query().Get("account_id")
+			accountIdClaim := strings.Split(claims.AllAccountIds, ",")
+			for _, accountId := range accountIdClaim {
+				if accountIdRouteVar == accountId {
+					writeTextResponse(w, http.StatusOK, "User can access new transaction route for himself")
+					return
+				}
+			}
+			logger.Error("User trying to make transaction for another customer's account")
+			newErr := errs.NewAuthenticationError("Access denied")
+			writeTextResponse(w, newErr.Code, newErr.Message)
+		}
+	} else {
+		newErr := errs.NewAuthenticationError("Unknown role")
+		writeTextResponse(w, newErr.Code, newErr.Message)
+	}
 }
 
-func writeJsonResponse(w http.ResponseWriter, code int, data interface{}) {
-	w.Header().Add("Content-Type", "application/json")
+func writeTextResponse(w http.ResponseWriter, code int, msg string) {
 	w.WriteHeader(code)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		panic(err)
+	if _, err := w.Write([]byte(msg)); err != nil {
+		logger.Fatal("Error while sending response")
 	}
 }
 
