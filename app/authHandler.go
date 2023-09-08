@@ -2,7 +2,6 @@ package app
 
 import (
 	"encoding/json"
-	"github.com/udemy-go-1/banking-auth/domain"
 	"github.com/udemy-go-1/banking-auth/dto"
 	"github.com/udemy-go-1/banking-auth/service"
 	"github.com/udemy-go-1/banking-lib/logger"
@@ -10,7 +9,7 @@ import (
 )
 
 type AuthHandler struct { //REST handler (adapter)
-	service service.LoginService //REST handler depends on service (service is a field)
+	service service.AuthService //REST handler depends on service (service is a field)
 }
 
 func (h AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
@@ -32,41 +31,16 @@ func (h AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request) {
-	//verify validity of the token: verify signature
-	tokenString := r.URL.Query().Get("token")
-	t, err := domain.GetValidToken(tokenString)
-	if err != nil {
+	verifyRequestDTO := dto.VerifyRequestDTO{
+		TokenString: r.URL.Query().Get("token"),
+		RouteName:   r.URL.Query().Get("route_name"),
+		CustomerId:  r.URL.Query().Get("customer_id"),
+		AccountId:   r.URL.Query().Get("account_id"),
+	}
+
+	success, err := h.service.IsVerificationSuccess(verifyRequestDTO)
+	if !success || err != nil {
 		writeTextResponse(w, err.Code, err.Message)
-		return
-	}
-
-	//verify validity of the token: verify expiry
-	isTokenExpired, appErr := t.IsExpired()
-	if isTokenExpired || appErr != nil {
-		writeTextResponse(w, appErr.Code, appErr.Message)
-		return
-	}
-
-	//admin can access all routes (get role from token Body)
-	if t.CustomClaims.IsRoleAdmin() {
-		writeTextResponse(w, http.StatusOK, "Admin can access all routes")
-		return
-	}
-
-	//user can only access some routes
-	route := r.URL.Query().Get("route_name")
-	isRouteForbidden, appErr := t.CustomClaims.IsForbidden(route)
-	if isRouteForbidden || appErr != nil {
-		writeTextResponse(w, appErr.Code, appErr.Message)
-		return
-	}
-
-	//user can only access his own routes (get customer_id from token Body)
-	customerId := r.URL.Query().Get("customer_id")
-	accountId := r.URL.Query().Get("account_id")
-	hasMismatch, appErr := t.CustomClaims.HasMismatch(route, customerId, accountId)
-	if hasMismatch || appErr != nil {
-		writeTextResponse(w, appErr.Code, appErr.Message)
 		return
 	}
 

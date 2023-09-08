@@ -2,7 +2,6 @@ package domain
 
 import (
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/udemy-go-1/banking-lib/errs"
 	"github.com/udemy-go-1/banking-lib/logger"
 	"strings"
 )
@@ -15,41 +14,68 @@ type CustomClaims struct {
 	AllAccountIds string `json:"account_numbers"`
 }
 
-func (c CustomClaims) IsRoleAdmin() bool {
+// IsAccessDenied performs a series of checks on the role privileges and identity sent by the client in the request
+// against those in the token claims.
+func (c *CustomClaims) IsAccessDenied(route string, customerId string, accountId string) bool {
+	//admin can access all routes (get role from token Body)
+	if c.isRoleAdmin() {
+		return false
+	}
+
+	//user can only access some routes
+	if c.isForbidden(route) {
+		return true
+	}
+
+	//user can only access his own routes (get customer_id from token Body)
+	if c.isCustomerIdMismatch(customerId) {
+		logger.Error("Customer ID does not belong to client")
+		return true
+	}
+	if route == "NewTransaction" && c.isAccountIdMismatch(accountId) {
+		logger.Error("Account ID does not belong to client")
+		return true
+	}
+
+	return false
+}
+
+func (c *CustomClaims) isRoleAdmin() bool {
 	if c.Role == "admin" { //public claims "customer_id", "role", etc
 		return true
 	}
 	return false
 }
 
-func (c CustomClaims) IsForbidden(route string) (bool, *errs.AppError) {
+func (c *CustomClaims) isForbidden(route string) bool {
 	if c.Role != "user" {
-		return true, errs.NewAuthenticationError("Unknown role")
+		logger.Error("Unknown role")
+		return true
 	}
 
 	if route == "GetAllCustomers" || route == "NewAccount" {
 		logger.Error("User trying to access admin-only routes")
-		return true, errs.NewAuthenticationError("Access denied")
+		return true
 	}
-	return false, nil
+	return false
 }
 
-func (c CustomClaims) HasMismatch(route string, custId string, acctId string) (bool, *errs.AppError) {
-	if route == "GetCustomer" {
-		actualCustId := c.CustomerId
-		if custId != actualCustId {
-			logger.Error("User trying to access another customer's details")
-			return true, errs.NewAuthenticationError("Access denied")
-		}
-	} else if route == "NewTransaction" {
-		actualAcctId := strings.Split(c.AllAccountIds, ",")
-		for _, aId := range actualAcctId {
-			if acctId == aId {
-				return false, nil
-			}
-		}
-		logger.Error("User trying to make transaction for another customer's account")
-		return true, errs.NewAuthenticationError("Access denied")
+func (c *CustomClaims) isCustomerIdMismatch(custId string) bool {
+	if custId != c.CustomerId {
+		return true
 	}
-	return false, nil
+	return false
 }
+
+func (c *CustomClaims) isAccountIdMismatch(acctId string) bool {
+	actualAcctId := strings.Split(c.AllAccountIds, ",")
+	for _, aId := range actualAcctId {
+		if acctId == aId {
+			return false
+		}
+	}
+	return true
+}
+
+//using pointer receivers to avoid copying values of the struct each time (many CustomClaims methods are called)
+//https://go.dev/tour/methods/8
