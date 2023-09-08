@@ -17,7 +17,7 @@ type CustomClaims struct {
 // IsAccessDenied performs a series of checks on the role privileges and identity sent by the client in the request
 // against those in the token claims.
 func (c *CustomClaims) IsAccessDenied(route string, customerId string, accountId string) bool {
-	//admin can access all routes (get role from token Body)
+	//admin can access all routes (get role from token claims)
 	if c.isRoleAdmin() {
 		return false
 	}
@@ -27,11 +27,12 @@ func (c *CustomClaims) IsAccessDenied(route string, customerId string, accountId
 		return true
 	}
 
-	//user can only access his own routes (get customer_id from token Body)
+	//user can only access his own routes (get customer_id from url, actual from token claims)
 	if c.isCustomerIdMismatch(customerId) {
 		logger.Error("Customer ID does not belong to client")
 		return true
 	}
+	//and his own account (get account_id from url, actual account_numbers from token claims)
 	if route == "NewTransaction" && c.isAccountIdMismatch(accountId) {
 		logger.Error("Account ID does not belong to client")
 		return true
@@ -68,8 +69,8 @@ func (c *CustomClaims) isCustomerIdMismatch(custId string) bool {
 }
 
 func (c *CustomClaims) isAccountIdMismatch(acctId string) bool {
-	actualAcctId := strings.Split(c.AllAccountIds, ",")
-	for _, aId := range actualAcctId {
+	actualAccounts := strings.Split(c.AllAccountIds, ",")
+	for _, aId := range actualAccounts {
 		if acctId == aId {
 			return false
 		}

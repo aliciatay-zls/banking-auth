@@ -19,24 +19,28 @@ type UserRepository interface { //repo (secondary port)
 	GenerateToken(*User) (string, *errs.AppError)
 }
 
-func (u User) AsClaims() jwt.MapClaims {
-	var claims jwt.MapClaims
+func (u *User) AsClaims() CustomClaims {
+	var claims CustomClaims
 
 	if u.CustomerId.Valid && u.AllAccountIds.Valid { //non-admin user
-		claims = jwt.MapClaims{
-			"exp": time.Now().Add(time.Hour).Unix(),
+		claims = CustomClaims{
+			RegisteredClaims: jwt.RegisteredClaims{
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+			},
 
-			"username":        u.Username,
-			"role":            u.Role,
-			"customer_id":     u.CustomerId.String,
-			"account_numbers": u.AllAccountIds.String,
+			Username:      u.Username,
+			Role:          u.Role,
+			CustomerId:    u.CustomerId.String,
+			AllAccountIds: u.AllAccountIds.String,
 		}
 	} else { //admin or non-admin user with no bank accounts
-		claims = jwt.MapClaims{
-			"exp": time.Now().Add(time.Hour).Unix(),
+		claims = CustomClaims{
+			RegisteredClaims: jwt.RegisteredClaims{
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+			},
 
-			"username": u.Username,
-			"role":     u.Role,
+			Username: u.Username,
+			Role:     u.Role,
 		}
 	}
 

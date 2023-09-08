@@ -44,7 +44,7 @@ func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	writeTextResponse(w, http.StatusOK, "Client is authorized to access this route")
+	writeTextResponse(w, http.StatusOK, "success")
 }
 
 func writeTextResponse(w http.ResponseWriter, code int, msg string) {
