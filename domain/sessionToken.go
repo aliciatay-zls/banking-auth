@@ -7,17 +7,14 @@ import (
 	"time"
 )
 
+const SECRET = "hmacSampleSecret"
+
 // Wrap token
 type SessionToken struct {
 	JwtToken *jwt.Token
 }
 
 func GetValidToken(tokenString string) (*SessionToken, *errs.AppError) {
-	if tokenString == "" {
-		logger.Error("No token in url")
-		return nil, errs.NewUnexpectedError("Unexpected authentication error")
-	}
-
 	//verify validity of the token: verify signature
 	token, err := jwt.ParseWithClaims(tokenString,
 		&CustomClaims{},
@@ -28,7 +25,7 @@ func GetValidToken(tokenString string) (*SessionToken, *errs.AppError) {
 	)
 	if err != nil {
 		logger.Error("Error while parsing token: " + err.Error())
-		return nil, errs.NewUnexpectedError("Unexpected authentication error")
+		return nil, errs.NewAuthenticationError("Token is invalid or expired")
 	}
 
 	//other checks

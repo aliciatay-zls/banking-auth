@@ -31,6 +31,11 @@ func (h AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Get("token") == "" {
+		logger.Error("No token in url")
+		writeVerificationJsonResponse(w, http.StatusUnauthorized, "Missing token", false)
+		return
+	}
 	verifyRequestDTO := dto.VerifyRequestDTO{
 		TokenString: r.URL.Query().Get("token"),
 		RouteName:   r.URL.Query().Get("route_name"),
@@ -40,17 +45,29 @@ func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request)
 
 	success, err := h.service.IsVerificationSuccess(verifyRequestDTO)
 	if !success || err != nil {
-		writeTextResponse(w, err.Code, err.Message)
+		writeVerificationJsonResponse(w, err.Code, err.Message, false)
 		return
 	}
 
-	writeTextResponse(w, http.StatusOK, "success")
+	writeVerificationJsonResponse(w, http.StatusOK, "success", true)
 }
 
 func writeTextResponse(w http.ResponseWriter, code int, msg string) {
 	w.WriteHeader(code)
 	if _, err := w.Write([]byte(msg)); err != nil {
 		logger.Fatal("Error while sending response")
+	}
+}
+
+func writeVerificationJsonResponse(w http.ResponseWriter, code int, msg string, isAuthorized bool) {
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(code)
+	response := map[string]interface{}{
+		"is_authorized": isAuthorized,
+		"message":       msg,
+	}
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		panic(err)
 	}
 }
 

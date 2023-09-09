@@ -7,8 +7,6 @@ import (
 	"github.com/udemy-go-1/banking-lib/logger"
 )
 
-const SECRET = "hmacSampleSecret" //to store elsewhere
-
 type UserRepositoryDb struct { //DB (adapter)
 	client *sqlx.DB
 }

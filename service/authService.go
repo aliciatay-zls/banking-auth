@@ -12,11 +12,12 @@ type AuthService interface { //service (primary port)
 }
 
 type DefaultAuthService struct { //business/domain object
-	repo domain.UserRepository //business/domain object depends on repo (repo is a field)
+	repo            domain.UserRepository  //business/domain object depends on repo (repo is a field)
+	rolePermissions domain.RolePermissions //additionally depends on another business/domain object (is a field)
 }
 
-func NewDefaultAuthService(repo domain.UserRepository) DefaultAuthService {
-	return DefaultAuthService{repo}
+func NewDefaultAuthService(repo domain.UserRepository, rp domain.RolePermissions) DefaultAuthService {
+	return DefaultAuthService{repo, rp}
 }
 
 func (s DefaultAuthService) Login(requestDTO dto.LoginRequestDTO) (string, *errs.AppError) { //business/domain object implements service
@@ -33,8 +34,8 @@ func (s DefaultAuthService) Login(requestDTO dto.LoginRequestDTO) (string, *errs
 	return token, nil
 }
 
-// IsVerificationSuccess gets a valid, non-expired JWT from the token string. It then calls a series of checks on
-// whether the client has access to the route using the given token and request URL.
+// IsVerificationSuccess gets a valid, non-expired JWT from the token string. It then checks the client's
+// role privileges to access the route and if allowed, the client's identity.
 func (s DefaultAuthService) IsVerificationSuccess(requestDTO dto.VerifyRequestDTO) (bool, *errs.AppError) { //business/domain object implements service
 	t, err := domain.GetValidToken(requestDTO.TokenString)
 	if err != nil {
@@ -42,8 +43,17 @@ func (s DefaultAuthService) IsVerificationSuccess(requestDTO dto.VerifyRequestDT
 	}
 
 	claims := t.JwtToken.Claims.(*domain.CustomClaims)
-	if claims.IsAccessDenied(requestDTO.RouteName, requestDTO.CustomerId, requestDTO.AccountId) {
-		return false, errs.NewAuthenticationError("Access denied")
+
+	//admin can access all routes (get role from token claims)
+	//user can only access some routes
+	if !s.rolePermissions.IsAuthorizedFor(claims.Role, requestDTO.RouteName) {
+		return false, errs.NewAuthenticationError("Trying to access unauthorized route")
+	}
+
+	//admin can access on behalf of all users
+	//user can only access his own routes (get customer_id and account_id from url, actual from token claims)
+	if claims.IsIdentityMismatch(requestDTO.CustomerId, requestDTO.AccountId) {
+		return false, errs.NewAuthenticationError("Identity mismatch")
 	}
 
 	return true, nil
