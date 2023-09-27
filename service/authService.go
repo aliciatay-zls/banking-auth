@@ -8,7 +8,7 @@ import (
 
 type AuthService interface { //service (primary port)
 	Login(dto.LoginRequestDTO) (string, *errs.AppError)
-	IsVerificationSuccess(dto.VerifyRequestDTO) (bool, *errs.AppError)
+	Verify(dto.VerifyRequestDTO) *errs.AppError
 }
 
 type DefaultAuthService struct { //business/domain object
@@ -34,12 +34,12 @@ func (s DefaultAuthService) Login(requestDTO dto.LoginRequestDTO) (string, *errs
 	return token, nil
 }
 
-// IsVerificationSuccess gets a valid, non-expired JWT from the token string. It then checks the client's
+// Verify gets a valid, non-expired JWT from the token string. It then checks the client's
 // role privileges to access the route and if allowed, the client's identity.
-func (s DefaultAuthService) IsVerificationSuccess(requestDTO dto.VerifyRequestDTO) (bool, *errs.AppError) { //business/domain object implements service
+func (s DefaultAuthService) Verify(requestDTO dto.VerifyRequestDTO) *errs.AppError { //business/domain object implements service
 	t, err := domain.GetValidToken(requestDTO.TokenString)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	claims := t.JwtToken.Claims.(*domain.CustomClaims)
@@ -47,14 +47,14 @@ func (s DefaultAuthService) IsVerificationSuccess(requestDTO dto.VerifyRequestDT
 	//admin can access all routes (get role from token claims)
 	//user can only access some routes
 	if !s.rolePermissions.IsAuthorizedFor(claims.Role, requestDTO.RouteName) {
-		return false, errs.NewAuthenticationError("Trying to access unauthorized route")
+		return errs.NewAuthorizationError("Trying to access unauthorized route")
 	}
 
 	//admin can access on behalf of all users
 	//user can only access his own routes (get customer_id and account_id from url, actual from token claims)
 	if claims.IsIdentityMismatch(requestDTO.CustomerId, requestDTO.AccountId) {
-		return false, errs.NewAuthenticationError("Identity mismatch")
+		return errs.NewAuthorizationError("Identity mismatch between token claims and request")
 	}
 
-	return true, nil
+	return nil
 }

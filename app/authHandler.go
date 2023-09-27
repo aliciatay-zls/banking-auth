@@ -33,7 +33,7 @@ func (h AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("token") == "" {
 		logger.Error("No token in url")
-		writeVerificationJsonResponse(w, http.StatusUnauthorized, "Missing token", false)
+		writeVerificationJsonResponse(w, http.StatusForbidden, "Missing token", false)
 		return
 	}
 	verifyRequestDTO := dto.VerifyRequestDTO{
@@ -43,8 +43,8 @@ func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request)
 		AccountId:   r.URL.Query().Get("account_id"),
 	}
 
-	success, err := h.service.IsVerificationSuccess(verifyRequestDTO)
-	if !success || err != nil {
+	err := h.service.Verify(verifyRequestDTO)
+	if err != nil {
 		writeVerificationJsonResponse(w, err.Code, err.Message, false)
 		return
 	}

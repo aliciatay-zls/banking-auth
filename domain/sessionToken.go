@@ -25,18 +25,18 @@ func GetValidToken(tokenString string) (*SessionToken, *errs.AppError) {
 	)
 	if err != nil {
 		logger.Error("Error while parsing token: " + err.Error())
-		return nil, errs.NewAuthenticationError("Token is invalid or expired")
+		return nil, errs.NewAuthorizationError(err.Error())
 	}
 
 	//other checks
 	if !token.Valid {
 		logger.Error("Invalid token")
-		return nil, errs.NewAuthenticationError("Token is invalid")
+		return nil, errs.NewAuthorizationError("Token is invalid")
 	}
 	_, ok := token.Claims.(*CustomClaims)
 	if !ok {
 		logger.Error("Error while parsing token string with custom claims")
-		return nil, errs.NewUnexpectedError("Unexpected authentication error")
+		return nil, errs.NewUnexpectedError("Unexpected authorization error")
 	}
 
 	sessionToken := SessionToken{token}
@@ -54,11 +54,11 @@ func (t *SessionToken) IsExpired() (bool, *errs.AppError) {
 	date, err := t.JwtToken.Claims.GetExpirationTime() //registered claims "exp", etc
 	if err != nil {
 		logger.Error("Error while getting parsed token's expiry time: " + err.Error())
-		return false, errs.NewUnexpectedError("Unexpected authentication error")
+		return false, errs.NewUnexpectedError(err.Error())
 	}
 	if !date.Time.After(time.Now()) { //token expiry date is before or at current time = expired
 		logger.Error("Expired token")
-		return true, errs.NewAuthenticationError("Token has expired")
+		return true, errs.NewAuthorizationError("Token has expired")
 	}
 	return false, nil
 }
