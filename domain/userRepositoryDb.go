@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/jmoiron/sqlx"
 	"github.com/udemy-go-1/banking-lib/errs"
 	"github.com/udemy-go-1/banking-lib/logger"
@@ -48,16 +47,4 @@ func (d UserRepositoryDb) checkCredentials(un string, pw string) (bool, *errs.Ap
 	}
 
 	return true, nil
-}
-
-func (d UserRepositoryDb) GenerateToken(user *User) (string, *errs.AppError) { //DB implements repo
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, user.AsClaims())
-
-	tokenString, err := token.SignedString([]byte(SECRET))
-	if err != nil {
-		logger.Error("Error while signing token: " + err.Error())
-		return "", errs.NewUnexpectedError("Unexpected server-side error")
-	}
-
-	return tokenString, nil
 }

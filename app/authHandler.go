@@ -21,13 +21,13 @@ func (h AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, appErr := h.service.Login(loginRequestDTO)
+	response, appErr := h.service.Login(loginRequestDTO)
 	if appErr != nil {
 		writeTextResponse(w, appErr.Code, appErr.Message)
 		return
 	}
 
-	writeTextResponse(w, http.StatusOK, token)
+	writeJsonResponse(w, http.StatusOK, response)
 }
 
 func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request) {
@@ -50,6 +50,14 @@ func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	writeVerificationJsonResponse(w, http.StatusOK, "success", true)
+}
+
+func writeJsonResponse(w http.ResponseWriter, code int, data interface{}) {
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(code)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		panic(err)
+	}
 }
 
 func writeTextResponse(w http.ResponseWriter, code int, msg string) {

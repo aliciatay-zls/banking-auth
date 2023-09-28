@@ -14,35 +14,36 @@ type User struct { //business/domain object
 	AllAccountIds sql.NullString `db:"account_numbers"`
 }
 
-type UserRepository interface { //repo (secondary port)
-	Authenticate(string, string) (*User, *errs.AppError)
-	GenerateToken(*User) (string, *errs.AppError)
+func (u *User) AsClaims() CustomClaims {
+	if u.CustomerId.Valid && u.AllAccountIds.Valid { //non-admin user
+		return u.userClaims()
+	} else { //admin or non-admin user with no bank accounts
+		return u.adminClaims()
+	}
 }
 
-func (u *User) AsClaims() CustomClaims {
-	var claims CustomClaims
-
-	if u.CustomerId.Valid && u.AllAccountIds.Valid { //non-admin user
-		claims = CustomClaims{
-			RegisteredClaims: jwt.RegisteredClaims{
-				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
-			},
-
-			Username:      u.Username,
-			Role:          u.Role,
-			CustomerId:    u.CustomerId.String,
-			AllAccountIds: u.AllAccountIds.String,
-		}
-	} else { //admin or non-admin user with no bank accounts
-		claims = CustomClaims{
-			RegisteredClaims: jwt.RegisteredClaims{
-				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
-			},
-
-			Username: u.Username,
-			Role:     u.Role,
-		}
+func (u *User) userClaims() CustomClaims {
+	return CustomClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+		},
+		Username:      u.Username,
+		Role:          u.Role,
+		CustomerId:    u.CustomerId.String,
+		AllAccountIds: u.AllAccountIds.String,
 	}
+}
 
-	return claims
+func (u *User) adminClaims() CustomClaims {
+	return CustomClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+		},
+		Username: u.Username,
+		Role:     u.Role,
+	}
+}
+
+type UserRepository interface { //repo (secondary port)
+	Authenticate(string, string) (*User, *errs.AppError)
 }
