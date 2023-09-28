@@ -25,7 +25,7 @@ func (u *User) AsClaims() CustomClaims {
 func (u *User) userClaims() CustomClaims {
 	return CustomClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(AccessTokenDuration)),
 		},
 		Username:      u.Username,
 		Role:          u.Role,
@@ -37,7 +37,7 @@ func (u *User) userClaims() CustomClaims {
 func (u *User) adminClaims() CustomClaims {
 	return CustomClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(AccessTokenDuration)),
 		},
 		Username: u.Username,
 		Role:     u.Role,
@@ -46,4 +46,5 @@ func (u *User) adminClaims() CustomClaims {
 
 type UserRepository interface { //repo (secondary port)
 	Authenticate(string, string) (*User, *errs.AppError)
+	GenerateRefreshTokenAndSaveToStore(AuthToken) (string, *errs.AppError)
 }

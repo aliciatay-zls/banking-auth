@@ -4,6 +4,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/udemy-go-1/banking-lib/logger"
 	"strings"
+	"time"
 )
 
 type CustomClaims struct {
@@ -44,6 +45,18 @@ func (c *CustomClaims) isAccountIdMismatch(acctId string) bool {
 		}
 	}
 	return true
+}
+
+func (c *CustomClaims) AsRefreshTokenClaims() CustomClaims {
+	return CustomClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(RefreshTokenDuration)),
+		},
+		Username:      c.Username,
+		Role:          c.Role,
+		CustomerId:    c.CustomerId,    //empty string if admin
+		AllAccountIds: c.AllAccountIds, //empty string if admin
+	}
 }
 
 //using pointer receivers to avoid copying values of the struct each time (many CustomClaims methods are called)

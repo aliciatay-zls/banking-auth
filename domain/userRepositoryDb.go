@@ -38,7 +38,7 @@ func (d UserRepositoryDb) checkCredentials(un string, pw string) (bool, *errs.Ap
 	checkCredentialsSql := "SELECT 1 FROM users WHERE username = ? AND password = ?"
 	rows, err := d.client.Query(checkCredentialsSql, un, pw)
 	if err != nil {
-		logger.Error("Error while checking given username and password: " + err.Error())
+		logger.Error("Error while checking if given username and password pair exists: " + err.Error())
 		return false, errs.NewUnexpectedError("Unexpected database error")
 	}
 	if !rows.Next() {
@@ -47,4 +47,20 @@ func (d UserRepositoryDb) checkCredentials(un string, pw string) (bool, *errs.Ap
 	}
 
 	return true, nil
+}
+
+func (d UserRepositoryDb) GenerateRefreshTokenAndSaveToStore(authToken AuthToken) (string, *errs.AppError) {
+	var refreshToken string
+	var appErr *errs.AppError
+	if refreshToken, appErr = authToken.GenerateRefreshToken(); appErr != nil {
+		return "", appErr
+	}
+
+	insertTokenSql := `INSERT INTO refresh_token_store (refresh_token) VALUES (?)`
+	if _, err := d.client.Exec(insertTokenSql, refreshToken); err != nil {
+		logger.Error("Error while storing refresh token: " + err.Error())
+		return "", errs.NewUnexpectedError("Unexpected database error")
+	}
+
+	return refreshToken, nil
 }

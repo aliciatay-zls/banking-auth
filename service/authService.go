@@ -24,17 +24,23 @@ func NewDefaultAuthService(repo domain.UserRepository, rp domain.RolePermissions
 }
 
 func (s DefaultAuthService) Login(requestDTO dto.LoginRequestDTO) (*dto.LoginResponseDTO, *errs.AppError) { //business/domain object implements service
-	user, err := s.repo.Authenticate(requestDTO.Username, requestDTO.Password)
-	if err != nil {
+	var user *domain.User
+	var err *errs.AppError
+	if user, err = s.repo.Authenticate(requestDTO.Username, requestDTO.Password); err != nil {
 		return nil, err
 	}
 
-	token, err := domain.GenerateAccessToken(user.AsClaims())
-	if err != nil {
+	authToken := domain.NewAuthToken(user.AsClaims())
+
+	var accessToken, refreshToken string
+	if accessToken, err = authToken.GenerateAccessToken(); err != nil {
+		return nil, err
+	}
+	if refreshToken, err = s.repo.GenerateRefreshTokenAndSaveToStore(authToken); err != nil {
 		return nil, err
 	}
 
-	return &dto.LoginResponseDTO{AccessToken: token}, nil
+	return &dto.LoginResponseDTO{AccessToken: accessToken, RefreshToken: refreshToken}, nil
 }
 
 // Verify gets a valid, non-expired JWT from the token string. It then checks the client's
