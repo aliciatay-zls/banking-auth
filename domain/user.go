@@ -14,7 +14,7 @@ type User struct { //business/domain object
 	AllAccountIds sql.NullString `db:"account_numbers"`
 }
 
-func (u *User) AsClaims() CustomClaims {
+func (u *User) AsAccessTokenClaims() AccessTokenClaims {
 	if u.CustomerId.Valid && u.AllAccountIds.Valid { //non-admin user
 		return u.userClaims()
 	} else { //admin or non-admin user with no bank accounts
@@ -22,8 +22,8 @@ func (u *User) AsClaims() CustomClaims {
 	}
 }
 
-func (u *User) userClaims() CustomClaims {
-	return CustomClaims{
+func (u *User) userClaims() AccessTokenClaims {
+	return AccessTokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(AccessTokenDuration)),
 		},
@@ -34,8 +34,8 @@ func (u *User) userClaims() CustomClaims {
 	}
 }
 
-func (u *User) adminClaims() CustomClaims {
-	return CustomClaims{
+func (u *User) adminClaims() AccessTokenClaims {
+	return AccessTokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(AccessTokenDuration)),
 		},

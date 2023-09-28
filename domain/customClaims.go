@@ -7,7 +7,11 @@ import (
 	"time"
 )
 
-type CustomClaims struct {
+const SECRET = "hmacSampleSecret"
+const AccessTokenDuration = time.Hour
+const RefreshTokenDuration = time.Hour * 24 * 30 //1 month
+
+type AccessTokenClaims struct {
 	jwt.RegisteredClaims
 	Username      string `json:"username"`
 	Role          string `json:"role"`
@@ -15,9 +19,18 @@ type CustomClaims struct {
 	AllAccountIds string `json:"account_numbers"`
 }
 
+type RefreshTokenClaims struct {
+	jwt.RegisteredClaims
+	TokenType     string `json:"token_type"`
+	Username      string `json:"un"`
+	Role          string `json:"role"`
+	CustomerId    string `json:"cid"`
+	AllAccountIds string `json:"account_numbers"`
+}
+
 // IsIdentityMismatch checks, for users, the identity sent by the client in the request against
 // those in the token claims.
-func (c *CustomClaims) IsIdentityMismatch(customerId string, accountId string) bool {
+func (c *AccessTokenClaims) IsIdentityMismatch(customerId string, accountId string) bool {
 	if c.Role == "admin" {
 		return false
 	}
@@ -37,7 +50,7 @@ func (c *CustomClaims) IsIdentityMismatch(customerId string, accountId string) b
 	return true
 }
 
-func (c *CustomClaims) isAccountIdMismatch(acctId string) bool {
+func (c *AccessTokenClaims) isAccountIdMismatch(acctId string) bool {
 	actualAccounts := strings.Split(c.AllAccountIds, ",")
 	for _, aId := range actualAccounts {
 		if acctId == aId {
@@ -47,11 +60,12 @@ func (c *CustomClaims) isAccountIdMismatch(acctId string) bool {
 	return true
 }
 
-func (c *CustomClaims) AsRefreshTokenClaims() CustomClaims {
-	return CustomClaims{
+func (c *AccessTokenClaims) AsRefreshTokenClaims() RefreshTokenClaims {
+	return RefreshTokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(RefreshTokenDuration)),
 		},
+		TokenType:     "refresh token",
 		Username:      c.Username,
 		Role:          c.Role,
 		CustomerId:    c.CustomerId,    //empty string if admin

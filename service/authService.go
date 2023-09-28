@@ -25,19 +25,19 @@ func NewDefaultAuthService(repo domain.UserRepository, rp domain.RolePermissions
 
 func (s DefaultAuthService) Login(requestDTO dto.LoginRequestDTO) (*dto.LoginResponseDTO, *errs.AppError) { //business/domain object implements service
 	var user *domain.User
-	var err *errs.AppError
-	if user, err = s.repo.Authenticate(requestDTO.Username, requestDTO.Password); err != nil {
-		return nil, err
+	var appErr *errs.AppError
+	if user, appErr = s.repo.Authenticate(requestDTO.Username, requestDTO.Password); appErr != nil {
+		return nil, appErr
 	}
 
-	authToken := domain.NewAuthToken(user.AsClaims())
+	authToken := domain.NewAuthToken(user.AsAccessTokenClaims())
 
 	var accessToken, refreshToken string
-	if accessToken, err = authToken.GenerateAccessToken(); err != nil {
-		return nil, err
+	if accessToken, appErr = authToken.GenerateAccessToken(); appErr != nil {
+		return nil, appErr
 	}
-	if refreshToken, err = s.repo.GenerateRefreshTokenAndSaveToStore(authToken); err != nil {
-		return nil, err
+	if refreshToken, appErr = s.repo.GenerateRefreshTokenAndSaveToStore(authToken); appErr != nil {
+		return nil, appErr
 	}
 
 	return &dto.LoginResponseDTO{AccessToken: accessToken, RefreshToken: refreshToken}, nil
@@ -46,12 +46,12 @@ func (s DefaultAuthService) Login(requestDTO dto.LoginRequestDTO) (*dto.LoginRes
 // Verify gets a valid, non-expired JWT from the token string. It then checks the client's
 // role privileges to access the route and if allowed, the client's identity.
 func (s DefaultAuthService) Verify(requestDTO dto.VerifyRequestDTO) *errs.AppError { //business/domain object implements service
-	t, err := getValidTokenFrom(requestDTO.TokenString)
-	if err != nil {
-		return err
+	t, appErr := getValidTokenFrom(requestDTO.TokenString)
+	if appErr != nil {
+		return appErr
 	}
 
-	claims := t.Claims.(*domain.CustomClaims)
+	claims := t.Claims.(*domain.AccessTokenClaims)
 
 	//admin can access all routes (get role from token claims)
 	//user can only access some routes
@@ -71,7 +71,7 @@ func (s DefaultAuthService) Verify(requestDTO dto.VerifyRequestDTO) *errs.AppErr
 func getValidTokenFrom(tokenString string) (*jwt.Token, *errs.AppError) {
 	//verify validity of the token: verify signature
 	token, err := jwt.ParseWithClaims(tokenString,
-		&domain.CustomClaims{},
+		&domain.AccessTokenClaims{},
 		func(t *jwt.Token) (interface{}, error) {
 			return []byte(domain.SECRET), nil
 		},
@@ -87,7 +87,7 @@ func getValidTokenFrom(tokenString string) (*jwt.Token, *errs.AppError) {
 		logger.Error("Invalid token")
 		return nil, errs.NewAuthorizationError("Token is invalid")
 	}
-	_, ok := token.Claims.(*domain.CustomClaims)
+	_, ok := token.Claims.(*domain.AccessTokenClaims)
 	if !ok {
 		logger.Error("Error while parsing token string with custom claims")
 		return nil, errs.NewUnexpectedError("Unexpected authorization error")
