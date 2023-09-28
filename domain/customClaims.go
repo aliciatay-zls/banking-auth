@@ -21,15 +21,19 @@ func (c *CustomClaims) IsIdentityMismatch(customerId string, accountId string) b
 		return false
 	}
 
-	if customerId != "" && customerId != c.CustomerId { // (*)
-		logger.Error("Customer ID does not belong to client")
-		return true
+	if c.Role == "user" {
+		if customerId != c.CustomerId {
+			logger.Error("Customer ID does not belong to client")
+			return true
+		}
+		if c.isAccountIdMismatch(accountId) {
+			logger.Error("Account ID does not belong to client")
+			return true
+		}
+		return false
 	}
-	if accountId != "" && c.isAccountIdMismatch(accountId) {
-		logger.Error("Account ID does not belong to client")
-		return true
-	}
-	return false
+
+	return true
 }
 
 func (c *CustomClaims) isAccountIdMismatch(acctId string) bool {
@@ -44,10 +48,3 @@ func (c *CustomClaims) isAccountIdMismatch(acctId string) bool {
 
 //using pointer receivers to avoid copying values of the struct each time (many CustomClaims methods are called)
 //https://go.dev/tour/methods/8
-
-// (*)
-//By adding the first condition in this if-stmt (same for next if-stmt), makes this method route-independent.
-//No need to pass in route:
-//- These 2 checks will be skipped for routes that do not require customerId or accountId (mux guarantees they will
-//  be present as route variables in the first place so no need to additionally check if they were given).
-//- Guard clause before these 2 if-stmts ensure that admin can go to all routes on behalf of all users (skip checks).
