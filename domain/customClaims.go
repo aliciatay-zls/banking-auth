@@ -73,5 +73,17 @@ func (c *AccessTokenClaims) AsRefreshTokenClaims() RefreshTokenClaims {
 	}
 }
 
+func (c *RefreshTokenClaims) AsAccessTokenClaims() AccessTokenClaims {
+	return AccessTokenClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(AccessTokenDuration)),
+		},
+		Username:      c.Username,
+		Role:          c.Role,
+		CustomerId:    c.CustomerId,
+		AllAccountIds: c.AllAccountIds,
+	}
+}
+
 //using pointer receivers to avoid copying values of the struct each time (many CustomClaims methods are called)
 //https://go.dev/tour/methods/8

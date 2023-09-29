@@ -13,17 +13,16 @@ type AuthHandler struct { //REST handler (adapter)
 }
 
 func (h AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
-	loginRequestDTO := dto.LoginRequestDTO{}
-
+	var loginRequestDTO dto.LoginRequestDTO
 	if err := json.NewDecoder(r.Body).Decode(&loginRequestDTO); err != nil {
 		logger.Error("Error while decoding json body of login request: " + err.Error())
-		writeTextResponse(w, http.StatusBadRequest, err.Error())
+		writeJsonResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	response, appErr := h.service.Login(loginRequestDTO)
 	if appErr != nil {
-		writeTextResponse(w, appErr.Code, appErr.Message)
+		writeJsonResponse(w, appErr.Code, appErr.Message)
 		return
 	}
 
@@ -43,8 +42,7 @@ func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request)
 		AccountId:   r.URL.Query().Get("account_id"),
 	}
 
-	err := h.service.Verify(verifyRequestDTO)
-	if err != nil {
+	if err := h.service.Verify(verifyRequestDTO); err != nil {
 		writeVerificationJsonResponse(w, err.Code, err.Message, false)
 		return
 	}
@@ -52,18 +50,35 @@ func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request)
 	writeVerificationJsonResponse(w, http.StatusOK, "success", true)
 }
 
+func (h AuthHandler) RefreshHandler(w http.ResponseWriter, r *http.Request) {
+	var refreshRequest dto.LoginResponseDTO
+	if err := json.NewDecoder(r.Body).Decode(&refreshRequest); err != nil {
+		logger.Error("Error while decoding json body of refresh request: " + err.Error())
+		writeJsonResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if refreshRequest.AccessToken == "" || refreshRequest.RefreshToken == "" {
+		logger.Error("Field(s) missing or empty in request body")
+		writeJsonResponse(w, http.StatusBadRequest,
+			"Field(s) missing or empty in request body: access_token, refresh_token")
+		return
+	}
+
+	response, err := h.service.Refresh(refreshRequest.AccessToken, refreshRequest.RefreshToken)
+	if err != nil {
+		writeJsonResponse(w, err.Code, err.AsMessage())
+		return
+	}
+
+	writeJsonResponse(w, http.StatusOK, response)
+}
+
 func writeJsonResponse(w http.ResponseWriter, code int, data interface{}) {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(code)
 	if err := json.NewEncoder(w).Encode(data); err != nil {
 		panic(err)
-	}
-}
-
-func writeTextResponse(w http.ResponseWriter, code int, msg string) {
-	w.WriteHeader(code)
-	if _, err := w.Write([]byte(msg)); err != nil {
-		logger.Fatal("Error while sending response")
 	}
 }
 

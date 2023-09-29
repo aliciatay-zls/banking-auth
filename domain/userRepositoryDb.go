@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"database/sql"
+	"errors"
 	"github.com/jmoiron/sqlx"
 	"github.com/udemy-go-1/banking-lib/errs"
 	"github.com/udemy-go-1/banking-lib/logger"
@@ -15,9 +17,8 @@ func NewUserRepositoryDb(dbClient *sqlx.DB) UserRepositoryDb {
 }
 
 func (d UserRepositoryDb) Authenticate(username string, password string) (*User, *errs.AppError) { //DB implements repo
-	isCorrect, appErr := d.checkCredentials(username, password)
-	if !isCorrect {
-		return nil, appErr
+	if err := d.checkCredentials(username, password); err != nil {
+		return nil, err
 	}
 
 	var user User
@@ -34,19 +35,18 @@ func (d UserRepositoryDb) Authenticate(username string, password string) (*User,
 	return &user, nil
 }
 
-func (d UserRepositoryDb) checkCredentials(un string, pw string) (bool, *errs.AppError) {
+func (d UserRepositoryDb) checkCredentials(un string, pw string) *errs.AppError {
+	var isExists int
 	checkCredentialsSql := "SELECT 1 FROM users WHERE username = ? AND password = ?"
-	rows, err := d.client.Query(checkCredentialsSql, un, pw)
-	if err != nil {
+	if err := d.client.Get(&isExists, checkCredentialsSql, un, pw); err != nil {
 		logger.Error("Error while checking if given username and password pair exists: " + err.Error())
-		return false, errs.NewUnexpectedError("Unexpected database error")
-	}
-	if !rows.Next() {
-		logger.Error("User with given username or password was not found")
-		return false, errs.NewAuthenticationError("Incorrect username or password")
+		if errors.Is(err, sql.ErrNoRows) {
+			return errs.NewAuthenticationError("Incorrect username or password")
+		}
+		return errs.NewUnexpectedError("Unexpected database error")
 	}
 
-	return true, nil
+	return nil
 }
 
 func (d UserRepositoryDb) GenerateRefreshTokenAndSaveToStore(authToken AuthToken) (string, *errs.AppError) {
@@ -63,4 +63,18 @@ func (d UserRepositoryDb) GenerateRefreshTokenAndSaveToStore(authToken AuthToken
 	}
 
 	return refreshToken, nil
+}
+
+func (d UserRepositoryDb) FindRefreshToken(token string) *errs.AppError {
+	var isExists int
+	findTokenSql := `SELECT 1 FROM refresh_token_store WHERE refresh_token = ?`
+	if err := d.client.Get(&isExists, findTokenSql, token); err != nil {
+		logger.Error("Error while checking if refresh token exists: " + err.Error())
+		if errors.Is(err, sql.ErrNoRows) {
+			return errs.NewAuthorizationError("Invalid refresh token")
+		}
+		return errs.NewUnexpectedError(err.Error())
+	}
+
+	return nil
 }

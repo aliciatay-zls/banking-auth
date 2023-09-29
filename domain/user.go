@@ -47,4 +47,5 @@ func (u *User) adminClaims() AccessTokenClaims {
 type UserRepository interface { //repo (secondary port)
 	Authenticate(string, string) (*User, *errs.AppError)
 	GenerateRefreshTokenAndSaveToStore(AuthToken) (string, *errs.AppError)
+	FindRefreshToken(string) *errs.AppError
 }
