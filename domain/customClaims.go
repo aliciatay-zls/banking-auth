@@ -85,5 +85,16 @@ func (c *RefreshTokenClaims) AsAccessTokenClaims() AccessTokenClaims {
 	}
 }
 
+func IsTokensMismatch(accessClaims *AccessTokenClaims, refreshClaims *RefreshTokenClaims) bool {
+	if accessClaims.Username != refreshClaims.Username ||
+		accessClaims.Role != refreshClaims.Role ||
+		accessClaims.CustomerId != refreshClaims.CustomerId ||
+		accessClaims.AllAccountIds != refreshClaims.AllAccountIds {
+		logger.Error("Access token claims and refresh token claims do not match")
+		return true
+	}
+	return false
+}
+
 //using pointer receivers to avoid copying values of the struct each time (many CustomClaims methods are called)
 //https://go.dev/tour/methods/8

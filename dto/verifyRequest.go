@@ -1,6 +1,6 @@
 package dto
 
-type VerifyRequestDTO struct {
+type VerifyRequest struct {
 	TokenString string
 	RouteName   string
 	CustomerId  string

@@ -13,14 +13,14 @@ type AuthHandler struct { //REST handler (adapter)
 }
 
 func (h AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
-	var loginRequestDTO dto.LoginRequestDTO
-	if err := json.NewDecoder(r.Body).Decode(&loginRequestDTO); err != nil {
+	var loginRequest dto.LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
 		logger.Error("Error while decoding json body of login request: " + err.Error())
 		writeJsonResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	response, appErr := h.service.Login(loginRequestDTO)
+	response, appErr := h.service.Login(loginRequest)
 	if appErr != nil {
 		writeJsonResponse(w, appErr.Code, appErr.Message)
 		return
@@ -35,14 +35,14 @@ func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request)
 		writeVerificationJsonResponse(w, http.StatusForbidden, "Missing token", false)
 		return
 	}
-	verifyRequestDTO := dto.VerifyRequestDTO{
+	verifyRequest := dto.VerifyRequest{
 		TokenString: r.URL.Query().Get("token"),
 		RouteName:   r.URL.Query().Get("route_name"),
 		CustomerId:  r.URL.Query().Get("customer_id"),
 		AccountId:   r.URL.Query().Get("account_id"),
 	}
 
-	if err := h.service.Verify(verifyRequestDTO); err != nil {
+	if err := h.service.Verify(verifyRequest); err != nil {
 		writeVerificationJsonResponse(w, err.Code, err.Message, false)
 		return
 	}
@@ -51,7 +51,7 @@ func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (h AuthHandler) RefreshHandler(w http.ResponseWriter, r *http.Request) {
-	var refreshRequest dto.RefreshRequestDTO
+	var refreshRequest dto.RefreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&refreshRequest); err != nil {
 		logger.Error("Error while decoding json body of refresh request: " + err.Error())
 		writeJsonResponse(w, http.StatusBadRequest, err.Error())
