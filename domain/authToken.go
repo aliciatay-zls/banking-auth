@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/udemy-go-1/banking-lib/errs"
 	"github.com/udemy-go-1/banking-lib/logger"
@@ -35,4 +36,66 @@ func (t AuthToken) GenerateRefreshToken() (string, *errs.AppError) {
 		return "", errs.NewUnexpectedError("Unexpected server-side error")
 	}
 	return tokenString, nil
+}
+
+// GetValidAccessTokenFrom validates the token string's signature and claims such as expiry date, converting the token
+// string into a JWT and storing the claims into it. An expired access token is considered valid during the process of
+// refreshing it (allowExpired is true), and invalid otherwise.
+func GetValidAccessTokenFrom(tokenString string, allowExpired bool) (*jwt.Token, *errs.AppError) {
+	token, err := jwt.ParseWithClaims(tokenString,
+		&AccessTokenClaims{},
+		func(t *jwt.Token) (interface{}, error) {
+			return []byte(SECRET), nil
+		},
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}),
+	)
+
+	if !token.Valid {
+		if !allowExpired && errors.Is(err, jwt.ErrTokenExpired) {
+			logger.Error("Expired access token")
+			return nil, errs.NewAuthenticationError("Access token has expired")
+		} else if !errors.Is(err, jwt.ErrTokenExpired) {
+			var errReason string
+			if err != nil {
+				errReason = err.Error()
+			}
+			logger.Error("Invalid access token " + errReason)
+			return nil, errs.NewAuthenticationError("Access token is invalid")
+		}
+	}
+	_, ok := token.Claims.(*AccessTokenClaims)
+	if !ok {
+		logger.Error("Error while parsing access token string with custom claims")
+		return nil, errs.NewUnexpectedError("Unexpected authorization error")
+	}
+
+	return token, nil
+}
+
+// GetValidRefreshTokenFrom validates the token string's signature and claims such as expiry date, converting the token
+// string into a JWT and storing the claims into it. An expired refresh token is always considered an invalid token.
+func GetValidRefreshTokenFrom(tokenString string) (*jwt.Token, *errs.AppError) {
+	token, err := jwt.ParseWithClaims(tokenString,
+		&RefreshTokenClaims{},
+		func(t *jwt.Token) (interface{}, error) {
+			return []byte(SECRET), nil
+		},
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}),
+	)
+
+	if !token.Valid {
+		var errReason string
+		if err != nil {
+			errReason = err.Error()
+		}
+		logger.Error("Invalid or expired refresh token " + errReason)
+		return nil, errs.NewAuthenticationError("Refresh token is invalid or expired, please login again")
+	}
+	_, ok := token.Claims.(*RefreshTokenClaims)
+	if !ok {
+		logger.Error("Error while parsing refresh token string with custom claims")
+		return nil, errs.NewUnexpectedError("Unexpected authorization error")
+	}
+
+	return token, nil
 }

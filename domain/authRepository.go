@@ -8,15 +8,21 @@ import (
 	"github.com/udemy-go-1/banking-lib/logger"
 )
 
-type UserRepositoryDb struct { //DB (adapter)
+type AuthRepository interface { //repo (secondary port)
+	Authenticate(string, string) (*User, *errs.AppError)
+	GenerateRefreshTokenAndSaveToStore(AuthToken) (string, *errs.AppError)
+	FindRefreshToken(string) *errs.AppError
+}
+
+type AuthRepositoryDb struct { //DB (adapter)
 	client *sqlx.DB
 }
 
-func NewUserRepositoryDb(dbClient *sqlx.DB) UserRepositoryDb {
-	return UserRepositoryDb{dbClient}
+func NewAuthRepositoryDb(dbClient *sqlx.DB) AuthRepositoryDb {
+	return AuthRepositoryDb{dbClient}
 }
 
-func (d UserRepositoryDb) Authenticate(username string, password string) (*User, *errs.AppError) { //DB implements repo
+func (d AuthRepositoryDb) Authenticate(username string, password string) (*User, *errs.AppError) { //DB implements repo
 	if err := d.checkCredentials(username, password); err != nil {
 		return nil, err
 	}
@@ -35,7 +41,7 @@ func (d UserRepositoryDb) Authenticate(username string, password string) (*User,
 	return &user, nil
 }
 
-func (d UserRepositoryDb) checkCredentials(un string, pw string) *errs.AppError {
+func (d AuthRepositoryDb) checkCredentials(un string, pw string) *errs.AppError {
 	var isExists int
 	checkCredentialsSql := "SELECT 1 FROM users WHERE username = ? AND password = ?"
 	if err := d.client.Get(&isExists, checkCredentialsSql, un, pw); err != nil {
@@ -49,7 +55,7 @@ func (d UserRepositoryDb) checkCredentials(un string, pw string) *errs.AppError 
 	return nil
 }
 
-func (d UserRepositoryDb) GenerateRefreshTokenAndSaveToStore(authToken AuthToken) (string, *errs.AppError) {
+func (d AuthRepositoryDb) GenerateRefreshTokenAndSaveToStore(authToken AuthToken) (string, *errs.AppError) {
 	var refreshToken string
 	var appErr *errs.AppError
 	if refreshToken, appErr = authToken.GenerateRefreshToken(); appErr != nil {
@@ -65,15 +71,15 @@ func (d UserRepositoryDb) GenerateRefreshTokenAndSaveToStore(authToken AuthToken
 	return refreshToken, nil
 }
 
-func (d UserRepositoryDb) FindRefreshToken(token string) *errs.AppError {
+func (d AuthRepositoryDb) FindRefreshToken(token string) *errs.AppError {
 	var isExists int
 	findTokenSql := `SELECT 1 FROM refresh_token_store WHERE refresh_token = ?`
 	if err := d.client.Get(&isExists, findTokenSql, token); err != nil {
 		logger.Error("Error while checking if refresh token exists: " + err.Error())
 		if errors.Is(err, sql.ErrNoRows) {
-			return errs.NewAuthorizationError("Invalid refresh token")
+			return errs.NewAuthenticationError("Refresh token not registered in the store")
 		}
-		return errs.NewUnexpectedError(err.Error())
+		return errs.NewUnexpectedError("Unexpected database error")
 	}
 
 	return nil

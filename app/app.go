@@ -37,7 +37,7 @@ func Start() {
 	router := mux.NewRouter()
 
 	dbClient := getDbClient()
-	userRepository := domain.NewUserRepositoryDb(dbClient)
+	userRepository := domain.NewAuthRepositoryDb(dbClient)
 	ah := AuthHandler{service.NewDefaultAuthService(userRepository, domain.NewRolePermissions())}
 
 	router.HandleFunc("/auth/login", ah.LoginHandler).Methods(http.MethodPost)

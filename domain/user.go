@@ -3,7 +3,6 @@ package domain
 import (
 	"database/sql"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/udemy-go-1/banking-lib/errs"
 	"time"
 )
 
@@ -42,10 +41,4 @@ func (u *User) adminClaims() AccessTokenClaims {
 		Username: u.Username,
 		Role:     u.Role,
 	}
-}
-
-type UserRepository interface { //repo (secondary port)
-	Authenticate(string, string) (*User, *errs.AppError)
-	GenerateRefreshTokenAndSaveToStore(AuthToken) (string, *errs.AppError)
-	FindRefreshToken(string) *errs.AppError
 }

@@ -51,7 +51,7 @@ func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (h AuthHandler) RefreshHandler(w http.ResponseWriter, r *http.Request) {
-	var refreshRequest dto.LoginResponseDTO
+	var refreshRequest dto.RefreshRequestDTO
 	if err := json.NewDecoder(r.Body).Decode(&refreshRequest); err != nil {
 		logger.Error("Error while decoding json body of refresh request: " + err.Error())
 		writeJsonResponse(w, http.StatusBadRequest, err.Error())
@@ -65,7 +65,7 @@ func (h AuthHandler) RefreshHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := h.service.Refresh(refreshRequest.AccessToken, refreshRequest.RefreshToken)
+	response, err := h.service.Refresh(refreshRequest)
 	if err != nil {
 		writeJsonResponse(w, err.Code, err.AsMessage())
 		return
