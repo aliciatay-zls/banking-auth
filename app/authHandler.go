@@ -13,6 +13,8 @@ type AuthHandler struct { //REST handler (adapter)
 }
 
 func (h AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+
 	var loginRequest dto.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
 		logger.Error("Error while decoding json body of login request: " + err.Error())
@@ -72,6 +74,12 @@ func (h AuthHandler) RefreshHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJsonResponse(w, http.StatusOK, response)
+}
+
+func enableCORS(w http.ResponseWriter) {
+	w.Header().Add("Access-Control-Allow-Origin", "http://localhost:3000") //frontend domain
+	w.Header().Add("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+	w.Header().Add("Access-Control-Allow-Headers", "*")
 }
 
 func writeJsonResponse(w http.ResponseWriter, code int, data interface{}) {
