@@ -39,7 +39,13 @@ func (s DefaultAuthService) Login(request dto.LoginRequest) (*dto.LoginResponse,
 	if refreshToken, appErr = s.repo.GenerateRefreshTokenAndSaveToStore(authToken); appErr != nil {
 		return nil, appErr
 	}
-	return &dto.LoginResponse{AccessToken: accessToken, RefreshToken: refreshToken}, nil
+
+	return &dto.LoginResponse{
+		Role:         user.Role,
+		CustomerId:   user.CustomerId.String,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}, nil
 }
 
 // Verify gets a valid, non-expired JWT from the token string. It then checks the client's
