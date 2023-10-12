@@ -53,7 +53,7 @@ func GetValidAccessTokenFrom(tokenString string, allowExpired bool) (*jwt.Token,
 	if !token.Valid {
 		if !allowExpired && errors.Is(err, jwt.ErrTokenExpired) {
 			logger.Error("Expired access token")
-			return nil, errs.NewAuthenticationError("Access token has expired")
+			return nil, errs.NewAuthenticationError(jwt.ErrTokenExpired.Error())
 		} else if !errors.Is(err, jwt.ErrTokenExpired) {
 			var errReason string
 			if err != nil {

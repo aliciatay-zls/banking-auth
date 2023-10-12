@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/udemy-go-1/banking-auth/dto"
 	"github.com/udemy-go-1/banking-auth/service"
 	"github.com/udemy-go-1/banking-lib/logger"
@@ -34,7 +35,7 @@ func (h AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("token") == "" {
 		logger.Error("No token in url")
-		writeVerificationJsonResponse(w, http.StatusForbidden, "Missing token", false)
+		writeVerificationJsonResponse(w, http.StatusForbidden, "unauthorized", "Missing token")
 		return
 	}
 	verifyRequest := dto.VerifyRequest{
@@ -45,14 +46,21 @@ func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	if err := h.service.Verify(verifyRequest); err != nil {
-		writeVerificationJsonResponse(w, err.Code, err.Message, false)
+		if err.Message == jwt.ErrTokenExpired.Error() {
+			writeVerificationJsonResponse(w, err.Code, "expired", "")
+			return
+		}
+
+		writeVerificationJsonResponse(w, err.Code, "unauthorized", err.Message)
 		return
 	}
 
-	writeVerificationJsonResponse(w, http.StatusOK, "success", true)
+	writeVerificationJsonResponse(w, http.StatusOK, "", "")
 }
 
 func (h AuthHandler) RefreshHandler(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+
 	var refreshRequest dto.RefreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&refreshRequest); err != nil {
 		logger.Error("Error while decoding json body of refresh request: " + err.Error())
@@ -76,6 +84,7 @@ func (h AuthHandler) RefreshHandler(w http.ResponseWriter, r *http.Request) {
 	writeJsonResponse(w, http.StatusOK, response)
 }
 
+// enableCORS is called at the start of the handler of any exposed APIs in order to accept requests from the frontend
 func enableCORS(w http.ResponseWriter) {
 	w.Header().Add("Access-Control-Allow-Origin", "http://localhost:3000") //frontend domain
 	w.Header().Add("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
@@ -90,12 +99,12 @@ func writeJsonResponse(w http.ResponseWriter, code int, data interface{}) {
 	}
 }
 
-func writeVerificationJsonResponse(w http.ResponseWriter, code int, msg string, isAuthorized bool) {
+func writeVerificationJsonResponse(w http.ResponseWriter, code int, outcome string, msg string) {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(code)
 	response := map[string]interface{}{
-		"is_authorized": isAuthorized,
-		"message":       msg,
+		"outcome": outcome,
+		"message": msg,
 	}
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		panic(err)
