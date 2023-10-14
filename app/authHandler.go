@@ -2,9 +2,9 @@ package app
 
 import (
 	"encoding/json"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/udemy-go-1/banking-auth/dto"
 	"github.com/udemy-go-1/banking-auth/service"
+	"github.com/udemy-go-1/banking-lib/errs"
 	"github.com/udemy-go-1/banking-lib/logger"
 	"net/http"
 )
@@ -19,13 +19,13 @@ func (h AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	var loginRequest dto.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
 		logger.Error("Error while decoding json body of login request: " + err.Error())
-		writeJsonResponse(w, http.StatusBadRequest, err.Error())
+		writeJsonResponse(w, http.StatusBadRequest, errs.NewMessageObject(err.Error()))
 		return
 	}
 
 	response, appErr := h.service.Login(loginRequest)
 	if appErr != nil {
-		writeJsonResponse(w, appErr.Code, appErr.Message)
+		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
 		return
 	}
 
@@ -35,7 +35,7 @@ func (h AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("token") == "" {
 		logger.Error("No token in url")
-		writeVerificationJsonResponse(w, http.StatusForbidden, "unauthorized", "Missing token")
+		writeJsonResponse(w, http.StatusForbidden, errs.NewMessageObject("Missing token"))
 		return
 	}
 	verifyRequest := dto.VerifyRequest{
@@ -46,16 +46,11 @@ func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	if err := h.service.Verify(verifyRequest); err != nil {
-		if err.Message == jwt.ErrTokenExpired.Error() {
-			writeVerificationJsonResponse(w, err.Code, "expired", "")
-			return
-		}
-
-		writeVerificationJsonResponse(w, err.Code, "unauthorized", err.Message)
+		writeJsonResponse(w, err.Code, err.AsMessage())
 		return
 	}
 
-	writeVerificationJsonResponse(w, http.StatusOK, "", "")
+	writeJsonResponse(w, http.StatusOK, errs.NewMessageObject(""))
 }
 
 func (h AuthHandler) RefreshHandler(w http.ResponseWriter, r *http.Request) {
@@ -64,14 +59,14 @@ func (h AuthHandler) RefreshHandler(w http.ResponseWriter, r *http.Request) {
 	var refreshRequest dto.RefreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&refreshRequest); err != nil {
 		logger.Error("Error while decoding json body of refresh request: " + err.Error())
-		writeJsonResponse(w, http.StatusBadRequest, err.Error())
+		writeJsonResponse(w, http.StatusBadRequest, errs.NewMessageObject(err.Error()))
 		return
 	}
 
 	if refreshRequest.AccessToken == "" || refreshRequest.RefreshToken == "" {
 		logger.Error("Field(s) missing or empty in request body")
 		writeJsonResponse(w, http.StatusBadRequest,
-			"Field(s) missing or empty in request body: access_token, refresh_token")
+			errs.NewMessageObject("Field(s) missing or empty in request body: access_token, refresh_token"))
 		return
 	}
 
@@ -98,32 +93,3 @@ func writeJsonResponse(w http.ResponseWriter, code int, data interface{}) {
 		panic(err)
 	}
 }
-
-func writeVerificationJsonResponse(w http.ResponseWriter, code int, outcome string, msg string) {
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(code)
-	response := map[string]interface{}{
-		"outcome": outcome,
-		"message": msg,
-	}
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		panic(err)
-	}
-}
-
-//jwt.Parse(): verify signing method, etc, then call keyFunc() --> (*)
-//https://github.com/golang-jwt/jwt/blob/v5.0.0/parser.go#L202
-//
-//keyFunc(): the function passed into jwt.Parse(). We have to make it return our secret (key) so that jwt.Parse()
-//can use our key to verify the signature
-//https://github.com/golang-jwt/jwt/blob/v5.0.0/parser.go#L94
-//
-//Keyfunc will be used by the Parse methods as a callback function to supply the key for verification. --> (*)
-//The function receives the parsed, but unverified Token. This allows you to use properties in the Header of the token
-//(such as `kid`) to identify which key to use. --> in the case where our app allows multiple signing algos
-//https://pkg.go.dev/github.com/golang-jwt/jwt/v5@v5.0.0#Keyfunc
-//
-//jwt.ParseWithClaims(): verify signing method, keyFunc passed in, signature, claims passed in
-//hence no need to verify signing method and signature after this call already (if managed to return jwt.Token,
-//means valid so far)
-//https://github.com/golang-jwt/jwt/blob/v5.0.0/parser.go#L55

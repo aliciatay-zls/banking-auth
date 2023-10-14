@@ -77,7 +77,7 @@ func (d AuthRepositoryDb) FindRefreshToken(token string) *errs.AppError {
 	if err := d.client.Get(&isExists, findTokenSql, token); err != nil {
 		logger.Error("Error while checking if refresh token exists: " + err.Error())
 		if errors.Is(err, sql.ErrNoRows) {
-			return errs.NewAuthenticationError("Refresh token not registered in the store")
+			return errs.NewAuthenticationErrorDueToRefreshToken()
 		}
 		return errs.NewUnexpectedError("Unexpected database error")
 	}

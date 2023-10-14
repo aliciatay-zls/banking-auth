@@ -53,14 +53,14 @@ func GetValidAccessTokenFrom(tokenString string, allowExpired bool) (*jwt.Token,
 	if !token.Valid {
 		if !allowExpired && errors.Is(err, jwt.ErrTokenExpired) {
 			logger.Error("Expired access token")
-			return nil, errs.NewAuthenticationError(jwt.ErrTokenExpired.Error())
+			return nil, errs.NewAuthenticationErrorDueToExpiredAccessToken()
 		} else if !errors.Is(err, jwt.ErrTokenExpired) {
 			var errReason string
 			if err != nil {
 				errReason = err.Error()
 			}
 			logger.Error("Invalid access token " + errReason)
-			return nil, errs.NewAuthenticationError("Access token is invalid")
+			return nil, errs.NewAuthenticationErrorDueToInvalidAccessToken()
 		}
 	}
 	_, ok := token.Claims.(*AccessTokenClaims)
@@ -89,7 +89,7 @@ func GetValidRefreshTokenFrom(tokenString string) (*jwt.Token, *errs.AppError) {
 			errReason = err.Error()
 		}
 		logger.Error("Invalid or expired refresh token " + errReason)
-		return nil, errs.NewAuthenticationError("Refresh token is invalid or expired, please login again")
+		return nil, errs.NewAuthenticationErrorDueToRefreshToken()
 	}
 	_, ok := token.Claims.(*RefreshTokenClaims)
 	if !ok {

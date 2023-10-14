@@ -92,7 +92,7 @@ func (s DefaultAuthService) Refresh(request dto.RefreshRequest) (*dto.RefreshRes
 	accessClaims := accessToken.Claims.(*domain.AccessTokenClaims)
 	refreshClaims := refreshToken.Claims.(*domain.RefreshTokenClaims)
 	if domain.IsTokensMismatch(accessClaims, refreshClaims) {
-		return nil, errs.NewAuthorizationError("Refresh token cannot be used to get new access token, please login again")
+		return nil, errs.NewAuthenticationErrorDueToRefreshToken()
 	}
 
 	authToken := domain.NewAuthToken(refreshClaims.AsAccessTokenClaims())
