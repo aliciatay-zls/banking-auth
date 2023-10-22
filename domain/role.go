@@ -8,8 +8,8 @@ type RolePermissions struct {
 
 func NewRolePermissions() RolePermissions {
 	rp := RolePermissions{map[string][]string{
-		"admin": {"GetAllCustomers", "GetCustomer", "NewAccount", "NewTransaction"},
-		"user":  {"GetCustomer", "NewTransaction"},
+		"admin": {"GetAllCustomers", "GetCustomer", "GetAccountsForCustomer", "NewAccount", "NewTransaction"},
+		"user":  {"GetCustomer", "GetAccountsForCustomer", "NewTransaction"},
 	}}
 	return rp
 }

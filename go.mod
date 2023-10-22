@@ -7,7 +7,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.0.0
 	github.com/gorilla/mux v1.8.0
 	github.com/jmoiron/sqlx v1.3.5
-	github.com/udemy-go-1/banking-lib v1.3.0
+	github.com/udemy-go-1/banking-lib v1.4.0
 )
 
 require (
