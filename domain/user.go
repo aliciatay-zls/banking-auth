@@ -6,17 +6,16 @@ import (
 	"time"
 )
 
-type User struct { //business/domain object
-	Username      string         `db:"username"`
-	Role          string         `db:"role"`
-	CustomerId    sql.NullString `db:"customer_id"`
-	AllAccountIds sql.NullString `db:"account_numbers"`
+type User struct { //business/domain object //currently only 2 roles //to check when writing create account api
+	Username   string         `db:"username"`
+	Role       string         `db:"role"`
+	CustomerId sql.NullString `db:"customer_id"`
 }
 
 func (u *User) AsAccessTokenClaims() AccessTokenClaims {
-	if u.CustomerId.Valid && u.AllAccountIds.Valid { //non-admin user
+	if u.CustomerId.Valid {
 		return u.userClaims()
-	} else { //admin or non-admin user with no bank accounts
+	} else {
 		return u.adminClaims()
 	}
 }
@@ -26,10 +25,9 @@ func (u *User) userClaims() AccessTokenClaims {
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(AccessTokenDuration)),
 		},
-		Username:      u.Username,
-		Role:          u.Role,
-		CustomerId:    u.CustomerId.String,
-		AllAccountIds: u.AllAccountIds.String,
+		Username:   u.Username,
+		Role:       u.Role,
+		CustomerId: u.CustomerId.String,
 	}
 }
 

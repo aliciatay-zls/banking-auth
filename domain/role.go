@@ -2,14 +2,17 @@ package domain
 
 import "github.com/udemy-go-1/banking-lib/logger"
 
+const RoleAdmin = "admin"
+const RoleUser = "user"
+
 type RolePermissions struct {
 	rolePermissionsMap map[string][]string
 }
 
 func NewRolePermissions() RolePermissions {
 	rp := RolePermissions{map[string][]string{
-		"admin": {"GetAllCustomers", "GetCustomer", "GetAccountsForCustomer", "NewAccount", "NewTransaction"},
-		"user":  {"GetCustomer", "GetAccountsForCustomer", "NewTransaction"},
+		RoleAdmin: {"GetAllCustomers", "GetCustomer", "GetAccountsForCustomer", "NewAccount", "NewTransaction"},
+		RoleUser:  {"GetCustomer", "GetAccountsForCustomer", "NewTransaction"},
 	}}
 	return rp
 }

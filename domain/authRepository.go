@@ -13,6 +13,7 @@ type AuthRepository interface { //repo (secondary port)
 	GenerateRefreshTokenAndSaveToStore(AuthToken) (string, *errs.AppError)
 	FindRefreshToken(string) *errs.AppError
 	FindUser(string, string, string) *errs.AppError
+	IsAccountUnderCustomer(string, string) *errs.AppError
 }
 
 type AuthRepositoryDb struct { //DB (adapter)
@@ -24,36 +25,18 @@ func NewAuthRepositoryDb(dbClient *sqlx.DB) AuthRepositoryDb {
 }
 
 func (d AuthRepositoryDb) Authenticate(username string, password string) (*User, *errs.AppError) { //DB implements repo
-	if err := d.checkCredentials(username, password); err != nil {
-		return nil, err
-	}
-
 	var user User
-	getDetailsSql := `SELECT u.username, u.role, u.customer_id, GROUP_CONCAT(a.account_id) AS account_numbers
-					FROM users u LEFT JOIN accounts a ON u.customer_id = a.customer_id 
-                    WHERE u.username = ? AND u.password = ?
-                    GROUP BY u.customer_id`
+	getDetailsSql := `SELECT username, role, customer_id FROM users WHERE username = ? AND password = ?`
 	err := d.client.Get(&user, getDetailsSql, username, password)
 	if err != nil {
 		logger.Error("Error while querying/scanning details of user: " + err.Error())
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errs.NewAuthenticationError("Incorrect username or password")
+		}
 		return nil, errs.NewUnexpectedError("Unexpected database error")
 	}
 
 	return &user, nil
-}
-
-func (d AuthRepositoryDb) checkCredentials(un string, pw string) *errs.AppError {
-	var isExists int
-	checkCredentialsSql := "SELECT 1 FROM users WHERE username = ? AND password = ?"
-	if err := d.client.Get(&isExists, checkCredentialsSql, un, pw); err != nil {
-		logger.Error("Error while checking if given username and password pair exists: " + err.Error())
-		if errors.Is(err, sql.ErrNoRows) {
-			return errs.NewAuthenticationError("Incorrect username or password")
-		}
-		return errs.NewUnexpectedError("Unexpected database error")
-	}
-
-	return nil
 }
 
 func (d AuthRepositoryDb) GenerateRefreshTokenAndSaveToStore(authToken AuthToken) (string, *errs.AppError) {
@@ -101,6 +84,20 @@ func (d AuthRepositoryDb) FindUser(un string, role string, cid string) *errs.App
 		logger.Error("Error while checking if user exists: " + err.Error())
 		if errors.Is(err, sql.ErrNoRows) {
 			return errs.NewAuthenticationError("User does not exist")
+		}
+		return errs.NewUnexpectedError("Unexpected database error")
+	}
+
+	return nil
+}
+
+func (d AuthRepositoryDb) IsAccountUnderCustomer(aid string, cid string) *errs.AppError {
+	var isExists int
+	checkAccountSql := `SELECT 1 FROM accounts WHERE customer_id = ? AND account_id = ?`
+	if err := d.client.Get(&isExists, checkAccountSql, cid, aid); err != nil {
+		logger.Error("Error while checking if account belongs to customer: " + err.Error())
+		if errors.Is(err, sql.ErrNoRows) {
+			return errs.NewAuthorizationError("Account does not belong to customer")
 		}
 		return errs.NewUnexpectedError("Unexpected database error")
 	}
