@@ -45,8 +45,8 @@ func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request)
 		AccountId:   r.URL.Query().Get("account_id"),
 	}
 
-	if err := h.service.Verify(verifyRequest); err != nil {
-		writeJsonResponse(w, err.Code, err.AsMessage())
+	if appErr := h.service.Verify(verifyRequest); appErr != nil {
+		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
 		return
 	}
 
@@ -70,9 +70,35 @@ func (h AuthHandler) RefreshHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := h.service.Refresh(refreshRequest)
-	if err != nil {
-		writeJsonResponse(w, err.Code, err.AsMessage())
+	response, appErr := h.service.Refresh(refreshRequest)
+	if appErr != nil {
+		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
+		return
+	}
+
+	writeJsonResponse(w, http.StatusOK, response)
+}
+
+func (h AuthHandler) ContinueHandler(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+
+	var continueRequest dto.ContinueRequest
+	if err := json.NewDecoder(r.Body).Decode(&continueRequest); err != nil {
+		logger.Error("Error while decoding json body of continue request: " + err.Error())
+		writeJsonResponse(w, http.StatusBadRequest, errs.NewMessageObject(err.Error()))
+		return
+	}
+
+	if continueRequest.AccessToken == "" || continueRequest.RefreshToken == "" {
+		logger.Error("Field(s) missing or empty in request body")
+		writeJsonResponse(w, http.StatusBadRequest,
+			errs.NewMessageObject("Field(s) missing or empty in request body: access_token, refresh_token"))
+		return
+	}
+
+	response, appErr := h.service.CheckAlreadyLoggedIn(continueRequest)
+	if appErr != nil {
+		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
 		return
 	}
 

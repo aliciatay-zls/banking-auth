@@ -12,6 +12,7 @@ type AuthRepository interface { //repo (secondary port)
 	Authenticate(string, string) (*User, *errs.AppError)
 	GenerateRefreshTokenAndSaveToStore(AuthToken) (string, *errs.AppError)
 	FindRefreshToken(string) *errs.AppError
+	FindUser(string, string, string) *errs.AppError
 }
 
 type AuthRepositoryDb struct { //DB (adapter)
@@ -78,6 +79,28 @@ func (d AuthRepositoryDb) FindRefreshToken(token string) *errs.AppError {
 		logger.Error("Error while checking if refresh token exists: " + err.Error())
 		if errors.Is(err, sql.ErrNoRows) {
 			return errs.NewAuthenticationErrorDueToRefreshToken()
+		}
+		return errs.NewUnexpectedError("Unexpected database error")
+	}
+
+	return nil
+}
+
+func (d AuthRepositoryDb) FindUser(un string, role string, cid string) *errs.AppError {
+	var isExists int
+	var err error
+
+	if cid == "" {
+		findUserSql := `SELECT 1 FROM users WHERE username = ? AND role = ? AND customer_id IS NULL`
+		err = d.client.Get(&isExists, findUserSql, un, role)
+	} else {
+		findUserSql := `SELECT 1 FROM users WHERE username = ? AND role = ? AND customer_id = ?`
+		err = d.client.Get(&isExists, findUserSql, un, role, cid)
+	}
+	if err != nil {
+		logger.Error("Error while checking if user exists: " + err.Error())
+		if errors.Is(err, sql.ErrNoRows) {
+			return errs.NewAuthenticationError("User does not exist")
 		}
 		return errs.NewUnexpectedError("Unexpected database error")
 	}

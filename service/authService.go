@@ -1,7 +1,6 @@
 package service
 
 import (
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/udemy-go-1/banking-auth/domain"
 	"github.com/udemy-go-1/banking-auth/dto"
 	"github.com/udemy-go-1/banking-lib/errs"
@@ -11,6 +10,7 @@ type AuthService interface { //service (primary port)
 	Login(dto.LoginRequest) (*dto.LoginResponse, *errs.AppError)
 	Verify(dto.VerifyRequest) *errs.AppError
 	Refresh(dto.RefreshRequest) (*dto.RefreshResponse, *errs.AppError)
+	CheckAlreadyLoggedIn(dto.ContinueRequest) (*dto.ContinueResponse, *errs.AppError)
 }
 
 type DefaultAuthService struct { //business/domain object
@@ -73,26 +73,17 @@ func (s DefaultAuthService) Verify(request dto.VerifyRequest) *errs.AppError { /
 	return nil
 }
 
-// Refresh validates the given access token and refresh token (exists in the store and not expired).
-// Refresh then checks that the overall request to get a new access token is valid (claims match).
-// The validated refresh token is then used to generate a new access token.
+// Refresh checks if a request to get a new access token is valid (both tokens are valid and claims match),
+// before using the validated refresh token to generate a new access token.
 func (s DefaultAuthService) Refresh(request dto.RefreshRequest) (*dto.RefreshResponse, *errs.AppError) {
-	var accessToken, refreshToken *jwt.Token
+	var refreshClaims *domain.RefreshTokenClaims
 	var appErr *errs.AppError
-	if accessToken, appErr = request.ValidateAccessToken(); appErr != nil {
-		return nil, appErr
-	}
-	if appErr = s.repo.FindRefreshToken(request.RefreshToken); appErr != nil {
-		return nil, appErr
-	}
-	if refreshToken, appErr = domain.GetValidRefreshTokenFrom(request.RefreshToken); appErr != nil {
+	if refreshClaims, appErr = request.Validate(); appErr != nil {
 		return nil, appErr
 	}
 
-	accessClaims := accessToken.Claims.(*domain.AccessTokenClaims)
-	refreshClaims := refreshToken.Claims.(*domain.RefreshTokenClaims)
-	if domain.IsTokensMismatch(accessClaims, refreshClaims) {
-		return nil, errs.NewAuthenticationErrorDueToRefreshToken()
+	if appErr = s.repo.FindRefreshToken(request.RefreshToken); appErr != nil {
+		return nil, appErr
 	}
 
 	authToken := domain.NewAuthToken(refreshClaims.AsAccessTokenClaims())
@@ -100,5 +91,27 @@ func (s DefaultAuthService) Refresh(request dto.RefreshRequest) (*dto.RefreshRes
 	if newAccessToken, appErr = authToken.GenerateAccessToken(); appErr != nil {
 		return nil, appErr
 	}
+
 	return &dto.RefreshResponse{NewAccessToken: newAccessToken}, nil
+}
+
+// CheckAlreadyLoggedIn determines if a request to continue an already logged-in session is valid (both tokens are
+// valid and claims match, and the user exists).
+func (s DefaultAuthService) CheckAlreadyLoggedIn(request dto.ContinueRequest) (*dto.ContinueResponse, *errs.AppError) {
+	var accessClaims *domain.AccessTokenClaims
+	var appErr *errs.AppError
+
+	if accessClaims, appErr = request.Validate(); appErr != nil {
+		return nil, appErr
+	}
+
+	if appErr = s.repo.FindRefreshToken(request.RefreshToken); appErr != nil {
+		return nil, appErr
+	}
+
+	if appErr = s.repo.FindUser(accessClaims.Username, accessClaims.Role, accessClaims.CustomerId); appErr != nil {
+		return nil, appErr
+	}
+
+	return &dto.ContinueResponse{Role: accessClaims.Role, CustomerId: accessClaims.CustomerId}, nil
 }

@@ -13,8 +13,27 @@ type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-// ValidateAccessToken checks that the given access token is valid (signed by this app) and has already expired.
-func (r RefreshRequest) ValidateAccessToken() (*jwt.Token, *errs.AppError) {
+func (r RefreshRequest) Validate() (*domain.RefreshTokenClaims, *errs.AppError) {
+	var accessToken, refreshToken *jwt.Token
+	var appErr *errs.AppError
+
+	if accessToken, appErr = r.validateExpiredAccessToken(); appErr != nil {
+		return nil, appErr
+	}
+
+	if refreshToken, appErr = domain.GetValidRefreshTokenFrom(r.RefreshToken); appErr != nil {
+		return nil, appErr
+	}
+
+	if accessClaims, refreshClaims := domain.GetMatchedClaims(accessToken, refreshToken); accessClaims == nil || refreshClaims == nil {
+		return nil, errs.NewAuthenticationErrorDueToRefreshToken()
+	} else {
+		return refreshClaims, nil
+	}
+}
+
+// validateExpiredAccessToken checks that the given access token is valid (signed by this app) and has already expired.
+func (r RefreshRequest) validateExpiredAccessToken() (*jwt.Token, *errs.AppError) {
 	var validatedAccessToken *jwt.Token
 	var appErr *errs.AppError
 	var isAccessTokenExpired bool
