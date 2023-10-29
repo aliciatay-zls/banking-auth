@@ -65,9 +65,15 @@ func (s DefaultAuthService) Verify(request dto.VerifyRequest) *errs.AppError { /
 	}
 
 	//admin can access on behalf of all users
-	//user can only access his own routes (get customer_id and account_id from url, actual from token claims)
-	if claims.IsIdentityMismatch(request.CustomerId, request.AccountId) {
+	//user can only access his own routes (get customer_id and account_id from url, actual from token claims and db)
+	if claims.IsIdentityMismatch(request.CustomerId) {
 		return errs.NewAuthorizationError("Identity mismatch between token claims and request")
+	}
+
+	if request.AccountId != "" {
+		if err := s.repo.IsAccountUnderCustomer(request.AccountId, request.CustomerId); err != nil {
+			return err
+		}
 	}
 
 	return nil
