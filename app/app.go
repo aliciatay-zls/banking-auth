@@ -41,6 +41,7 @@ func Start() {
 	ah := AuthHandler{service.NewDefaultAuthService(userRepository, domain.NewRolePermissions())}
 
 	router.HandleFunc("/auth/login", ah.LoginHandler).Methods(http.MethodPost)
+	router.HandleFunc("/auth/logout", ah.LogoutHandler).Methods(http.MethodPost)
 	router.HandleFunc("/auth/verify", ah.VerificationHandler).Methods(http.MethodGet)
 	router.HandleFunc("/auth/refresh", ah.RefreshHandler).Methods(http.MethodPost)
 	router.HandleFunc("/auth/continue", ah.ContinueHandler).Methods(http.MethodPost)

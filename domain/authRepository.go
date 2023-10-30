@@ -11,6 +11,7 @@ import (
 type AuthRepository interface { //repo (secondary port)
 	Authenticate(string, string) (*User, *errs.AppError)
 	GenerateRefreshTokenAndSaveToStore(AuthToken) (string, *errs.AppError)
+	DeleteRefreshTokenFromStore(string) *errs.AppError
 	FindRefreshToken(string) *errs.AppError
 	FindUser(string, string, string) *errs.AppError
 	IsAccountUnderCustomer(string, string) *errs.AppError
@@ -53,6 +54,27 @@ func (d AuthRepositoryDb) GenerateRefreshTokenAndSaveToStore(authToken AuthToken
 	}
 
 	return refreshToken, nil
+}
+
+func (d AuthRepositoryDb) DeleteRefreshTokenFromStore(token string) *errs.AppError {
+	deleteTokenSql := `DELETE FROM refresh_token_store WHERE refresh_token = ?`
+	result, err := d.client.Exec(deleteTokenSql, token)
+	if err != nil {
+		logger.Error("Error while deleting refresh token: " + err.Error())
+		return errs.NewUnexpectedError("Unexpected database error")
+	}
+
+	rowsDeleted, err := result.RowsAffected()
+	if err != nil {
+		logger.Error("Error while checking that there was a deletion: " + err.Error())
+		return errs.NewUnexpectedError("Unexpected database error")
+	}
+	if rowsDeleted != 1 {
+		logger.Error("Deletion failed")
+		return errs.NewUnexpectedError("Failed to log out")
+	}
+
+	return nil
 }
 
 func (d AuthRepositoryDb) FindRefreshToken(token string) *errs.AppError {

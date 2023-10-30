@@ -51,10 +51,7 @@ func GetValidAccessTokenFrom(tokenString string, allowExpired bool) (*jwt.Token,
 	)
 
 	if !token.Valid {
-		if !allowExpired && errors.Is(err, jwt.ErrTokenExpired) {
-			logger.Error("Expired access token")
-			return nil, errs.NewAuthenticationErrorDueToExpiredAccessToken()
-		} else if !errors.Is(err, jwt.ErrTokenExpired) {
+		if !errors.Is(err, jwt.ErrTokenExpired) {
 			var errReason string
 			if err != nil {
 				errReason = err.Error()
@@ -62,7 +59,13 @@ func GetValidAccessTokenFrom(tokenString string, allowExpired bool) (*jwt.Token,
 			logger.Error("Invalid access token " + errReason)
 			return nil, errs.NewAuthenticationErrorDueToInvalidAccessToken()
 		}
+
+		if !allowExpired {
+			logger.Error("Expired access token")
+			return nil, errs.NewAuthenticationErrorDueToExpiredAccessToken()
+		}
 	}
+
 	_, ok := token.Claims.(*AccessTokenClaims)
 	if !ok {
 		logger.Error("Error while parsing access token string with custom claims")
@@ -73,8 +76,9 @@ func GetValidAccessTokenFrom(tokenString string, allowExpired bool) (*jwt.Token,
 }
 
 // GetValidRefreshTokenFrom validates the token string's signature and claims such as expiry date, converting the token
-// string into a JWT and storing the claims into it. An expired refresh token is always considered an invalid token.
-func GetValidRefreshTokenFrom(tokenString string) (*jwt.Token, *errs.AppError) {
+// string into a JWT and storing the claims into it. The expiry of a refresh token is ignored during the process of
+// logging out (allowExpired is true). Otherwise, an expired refresh token is always considered an invalid token.
+func GetValidRefreshTokenFrom(tokenString string, allowExpired bool) (*jwt.Token, *errs.AppError) {
 	token, err := jwt.ParseWithClaims(tokenString,
 		&RefreshTokenClaims{},
 		func(t *jwt.Token) (interface{}, error) {
@@ -84,13 +88,16 @@ func GetValidRefreshTokenFrom(tokenString string) (*jwt.Token, *errs.AppError) {
 	)
 
 	if !token.Valid {
-		var errReason string
-		if err != nil {
-			errReason = err.Error()
+		if !errors.Is(err, jwt.ErrTokenExpired) || !allowExpired {
+			var errReason string
+			if err != nil {
+				errReason = err.Error()
+			}
+			logger.Error("Invalid or expired refresh token " + errReason)
+			return nil, errs.NewAuthenticationErrorDueToRefreshToken()
 		}
-		logger.Error("Invalid or expired refresh token " + errReason)
-		return nil, errs.NewAuthenticationErrorDueToRefreshToken()
 	}
+
 	_, ok := token.Claims.(*RefreshTokenClaims)
 	if !ok {
 		logger.Error("Error while parsing refresh token string with custom claims")

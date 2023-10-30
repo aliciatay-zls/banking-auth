@@ -8,6 +8,7 @@ import (
 
 type AuthService interface { //service (primary port)
 	Login(dto.LoginRequest) (*dto.LoginResponse, *errs.AppError)
+	Logout(string) *errs.AppError
 	Verify(dto.VerifyRequest) *errs.AppError
 	Refresh(dto.RefreshRequest) (*dto.RefreshResponse, *errs.AppError)
 	CheckAlreadyLoggedIn(dto.ContinueRequest) (*dto.ContinueResponse, *errs.AppError)
@@ -46,6 +47,14 @@ func (s DefaultAuthService) Login(request dto.LoginRequest) (*dto.LoginResponse,
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil
+}
+
+func (s DefaultAuthService) Logout(refreshToken string) *errs.AppError {
+	if _, appErr := domain.GetValidRefreshTokenFrom(refreshToken, true); appErr != nil {
+		return appErr
+	}
+
+	return s.repo.DeleteRefreshTokenFromStore(refreshToken)
 }
 
 // Verify gets a valid, non-expired JWT from the token string. It then checks the client's

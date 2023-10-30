@@ -21,7 +21,7 @@ func (r RefreshRequest) Validate() (*domain.RefreshTokenClaims, *errs.AppError) 
 		return nil, appErr
 	}
 
-	if refreshToken, appErr = domain.GetValidRefreshTokenFrom(r.RefreshToken); appErr != nil {
+	if refreshToken, appErr = domain.GetValidRefreshTokenFrom(r.RefreshToken, false); appErr != nil {
 		return nil, appErr
 	}
 

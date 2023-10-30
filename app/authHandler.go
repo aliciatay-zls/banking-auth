@@ -32,6 +32,26 @@ func (h AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	writeJsonResponse(w, http.StatusOK, response)
 }
 
+func (h AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+
+	type refreshTokenObject struct {
+		Token string `json:"refresh_token"`
+	}
+	var refreshToken refreshTokenObject
+	if err := json.NewDecoder(r.Body).Decode(&refreshToken); err != nil {
+		writeJsonResponse(w, http.StatusBadRequest, errs.NewMessageObject("Missing token"))
+		return
+	}
+
+	if appErr := h.service.Logout(refreshToken.Token); appErr != nil {
+		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
+		return
+	}
+
+	writeJsonResponse(w, http.StatusOK, errs.NewMessageObject(""))
+}
+
 func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("token") == "" {
 		logger.Error("No token in url")
