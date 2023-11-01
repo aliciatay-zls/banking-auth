@@ -43,6 +43,12 @@ func (h AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 		writeJsonResponse(w, http.StatusBadRequest, errs.NewMessageObject("Missing token"))
 		return
 	}
+	if refreshToken.Token == "" {
+		logger.Error("Field(s) missing or empty in request body")
+		writeJsonResponse(w, http.StatusBadRequest,
+			errs.NewMessageObject("Field(s) missing or empty in request body: access_token, refresh_token"))
+		return
+	}
 
 	if appErr := h.service.Logout(refreshToken.Token); appErr != nil {
 		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
