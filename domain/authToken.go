@@ -50,7 +50,7 @@ func GetValidAccessTokenFrom(tokenString string, allowExpired bool) (*jwt.Token,
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}),
 	)
 
-	if !token.Valid {
+	if err != nil || !token.Valid {
 		if !errors.Is(err, jwt.ErrTokenExpired) {
 			var errReason string
 			if err != nil {
@@ -87,7 +87,7 @@ func GetValidRefreshTokenFrom(tokenString string, allowExpired bool) (*jwt.Token
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}),
 	)
 
-	if !token.Valid {
+	if err != nil || !token.Valid {
 		if !errors.Is(err, jwt.ErrTokenExpired) || !allowExpired {
 			var errReason string
 			if err != nil {
