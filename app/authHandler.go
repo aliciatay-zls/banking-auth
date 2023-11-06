@@ -35,22 +35,17 @@ func (h AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 func (h AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	enableCORS(w)
 
-	type refreshTokenObject struct {
-		Token string `json:"refresh_token"`
-	}
-	var refreshToken refreshTokenObject
-	if err := json.NewDecoder(r.Body).Decode(&refreshToken); err != nil {
+	var tokenStrings dto.TokenStrings
+	if err := json.NewDecoder(r.Body).Decode(&tokenStrings); err != nil {
 		writeJsonResponse(w, http.StatusBadRequest, errs.NewMessageObject("Missing token"))
 		return
 	}
-	if refreshToken.Token == "" {
-		logger.Error("Field(s) missing or empty in request body")
-		writeJsonResponse(w, http.StatusBadRequest,
-			errs.NewMessageObject("Field(s) missing or empty in request body: access_token, refresh_token"))
+	if appErr := tokenStrings.ValidateRefreshToken(); appErr != nil {
+		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
 		return
 	}
 
-	if appErr := h.service.Logout(refreshToken.Token); appErr != nil {
+	if appErr := h.service.Logout(tokenStrings.RefreshToken); appErr != nil {
 		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
 		return
 	}
@@ -88,11 +83,8 @@ func (h AuthHandler) RefreshHandler(w http.ResponseWriter, r *http.Request) {
 		writeJsonResponse(w, http.StatusBadRequest, errs.NewMessageObject(err.Error()))
 		return
 	}
-
-	if refreshRequest.AccessToken == "" || refreshRequest.RefreshToken == "" {
-		logger.Error("Field(s) missing or empty in request body")
-		writeJsonResponse(w, http.StatusBadRequest,
-			errs.NewMessageObject("Field(s) missing or empty in request body: access_token, refresh_token"))
+	if appErr := refreshRequest.TokenStrings.Validate(); appErr != nil {
+		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
 		return
 	}
 
@@ -114,11 +106,8 @@ func (h AuthHandler) ContinueHandler(w http.ResponseWriter, r *http.Request) {
 		writeJsonResponse(w, http.StatusBadRequest, errs.NewMessageObject(err.Error()))
 		return
 	}
-
-	if continueRequest.AccessToken == "" || continueRequest.RefreshToken == "" {
-		logger.Error("Field(s) missing or empty in request body")
-		writeJsonResponse(w, http.StatusBadRequest,
-			errs.NewMessageObject("Field(s) missing or empty in request body: access_token, refresh_token"))
+	if appErr := continueRequest.TokenStrings.Validate(); appErr != nil {
+		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
 		return
 	}
 

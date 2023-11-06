@@ -7,8 +7,7 @@ import (
 )
 
 type ContinueRequest struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	TokenStrings
 }
 
 func (r ContinueRequest) Validate() (*domain.AccessTokenClaims, *errs.AppError) {
