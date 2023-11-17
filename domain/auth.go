@@ -6,37 +6,37 @@ import (
 	"time"
 )
 
-type User struct { //business/domain object //currently only 2 roles //to check when writing create account api
+type Auth struct { //business/domain object //currently only 2 roles //to check when writing create account api
 	Username   string         `db:"username"`
 	Role       string         `db:"role"`
 	CustomerId sql.NullString `db:"customer_id"`
 }
 
-func (u *User) AsAccessTokenClaims() AccessTokenClaims {
-	if u.CustomerId.Valid {
-		return u.userClaims()
+func (a *Auth) AsAccessTokenClaims() AccessTokenClaims {
+	if a.CustomerId.Valid {
+		return a.userClaims()
 	} else {
-		return u.adminClaims()
+		return a.adminClaims()
 	}
 }
 
-func (u *User) userClaims() AccessTokenClaims {
+func (a *Auth) userClaims() AccessTokenClaims {
 	return AccessTokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(AccessTokenDuration)),
 		},
-		Username:   u.Username,
-		Role:       u.Role,
-		CustomerId: u.CustomerId.String,
+		Username:   a.Username,
+		Role:       a.Role,
+		CustomerId: a.CustomerId.String,
 	}
 }
 
-func (u *User) adminClaims() AccessTokenClaims {
+func (a *Auth) adminClaims() AccessTokenClaims {
 	return AccessTokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(AccessTokenDuration)),
 		},
-		Username: u.Username,
-		Role:     u.Role,
+		Username: a.Username,
+		Role:     a.Role,
 	}
 }

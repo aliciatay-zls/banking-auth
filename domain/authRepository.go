@@ -9,7 +9,7 @@ import (
 )
 
 type AuthRepository interface { //repo (secondary port)
-	Authenticate(string, string) (*User, *errs.AppError)
+	Authenticate(string, string) (*Auth, *errs.AppError)
 	GenerateRefreshTokenAndSaveToStore(AuthToken) (string, *errs.AppError)
 	DeleteRefreshTokenFromStore(string) *errs.AppError
 	FindRefreshToken(string) *errs.AppError
@@ -25,10 +25,10 @@ func NewAuthRepositoryDb(dbClient *sqlx.DB) AuthRepositoryDb {
 	return AuthRepositoryDb{dbClient}
 }
 
-func (d AuthRepositoryDb) Authenticate(username string, password string) (*User, *errs.AppError) { //DB implements repo
-	var user User
+func (d AuthRepositoryDb) Authenticate(username string, password string) (*Auth, *errs.AppError) { //DB implements repo
+	var auth Auth
 	getDetailsSql := `SELECT username, role, customer_id FROM users WHERE username = ? AND password = ?`
-	err := d.client.Get(&user, getDetailsSql, username, password)
+	err := d.client.Get(&auth, getDetailsSql, username, password)
 	if err != nil {
 		logger.Error("Error while querying/scanning details of user: " + err.Error())
 		if errors.Is(err, sql.ErrNoRows) {
@@ -37,7 +37,7 @@ func (d AuthRepositoryDb) Authenticate(username string, password string) (*User,
 		return nil, errs.NewUnexpectedError("Unexpected database error")
 	}
 
-	return &user, nil
+	return &auth, nil
 }
 
 func (d AuthRepositoryDb) GenerateRefreshTokenAndSaveToStore(authToken AuthToken) (string, *errs.AppError) {

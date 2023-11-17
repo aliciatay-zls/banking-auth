@@ -53,7 +53,7 @@ func (h AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	writeJsonResponse(w, http.StatusOK, errs.NewMessageObject(""))
 }
 
-func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request) {
+func (h AuthHandler) VerifyHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("token") == "" {
 		logger.Error("No token in url")
 		writeJsonResponse(w, http.StatusForbidden, errs.NewMessageObject("Missing token"))
@@ -77,18 +77,18 @@ func (h AuthHandler) VerificationHandler(w http.ResponseWriter, r *http.Request)
 func (h AuthHandler) RefreshHandler(w http.ResponseWriter, r *http.Request) {
 	enableCORS(w)
 
-	var refreshRequest dto.RefreshRequest
-	if err := json.NewDecoder(r.Body).Decode(&refreshRequest); err != nil {
+	var tokenStrings dto.TokenStrings
+	if err := json.NewDecoder(r.Body).Decode(&tokenStrings); err != nil {
 		logger.Error("Error while decoding json body of refresh request: " + err.Error())
 		writeJsonResponse(w, http.StatusBadRequest, errs.NewMessageObject(err.Error()))
 		return
 	}
-	if appErr := refreshRequest.TokenStrings.Validate(); appErr != nil {
+	if appErr := tokenStrings.Validate(); appErr != nil {
 		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
 		return
 	}
 
-	response, appErr := h.service.Refresh(refreshRequest)
+	response, appErr := h.service.Refresh(tokenStrings)
 	if appErr != nil {
 		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
 		return
@@ -100,18 +100,18 @@ func (h AuthHandler) RefreshHandler(w http.ResponseWriter, r *http.Request) {
 func (h AuthHandler) ContinueHandler(w http.ResponseWriter, r *http.Request) {
 	enableCORS(w)
 
-	var continueRequest dto.ContinueRequest
-	if err := json.NewDecoder(r.Body).Decode(&continueRequest); err != nil {
+	var tokenStrings dto.TokenStrings
+	if err := json.NewDecoder(r.Body).Decode(&tokenStrings); err != nil {
 		logger.Error("Error while decoding json body of continue request: " + err.Error())
 		writeJsonResponse(w, http.StatusBadRequest, errs.NewMessageObject(err.Error()))
 		return
 	}
-	if appErr := continueRequest.TokenStrings.Validate(); appErr != nil {
+	if appErr := tokenStrings.Validate(); appErr != nil {
 		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
 		return
 	}
 
-	response, appErr := h.service.CheckAlreadyLoggedIn(continueRequest)
+	response, appErr := h.service.CheckAlreadyLoggedIn(tokenStrings)
 	if appErr != nil {
 		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
 		return

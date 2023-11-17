@@ -37,12 +37,15 @@ func Start() {
 	router := mux.NewRouter()
 
 	dbClient := getDbClient()
-	userRepository := domain.NewAuthRepositoryDb(dbClient)
-	ah := AuthHandler{service.NewDefaultAuthService(userRepository, domain.NewRolePermissions())}
+	registrationRepositoryDb := domain.NewRegistrationRepositoryDb(dbClient)
+	authRepositoryDb := domain.NewAuthRepositoryDb(dbClient)
+	rh := RegistrationHandler{service.NewRegistrationService(registrationRepositoryDb)}
+	ah := AuthHandler{service.NewDefaultAuthService(authRepositoryDb, domain.NewRolePermissions())}
 
+	router.HandleFunc("/auth/register", rh.RegisterHandler).Methods(http.MethodPost)
 	router.HandleFunc("/auth/login", ah.LoginHandler).Methods(http.MethodPost)
 	router.HandleFunc("/auth/logout", ah.LogoutHandler).Methods(http.MethodPost)
-	router.HandleFunc("/auth/verify", ah.VerificationHandler).Methods(http.MethodGet)
+	router.HandleFunc("/auth/verify", ah.VerifyHandler).Methods(http.MethodGet)
 	router.HandleFunc("/auth/refresh", ah.RefreshHandler).Methods(http.MethodPost)
 	router.HandleFunc("/auth/continue", ah.ContinueHandler).Methods(http.MethodPost)
 

@@ -5,6 +5,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/udemy-go-1/banking-lib/errs"
 	"github.com/udemy-go-1/banking-lib/logger"
+	"time"
 )
 
 type AuthToken struct {
@@ -105,4 +106,16 @@ func GetValidRefreshTokenFrom(tokenString string, allowExpired bool) (*jwt.Token
 	}
 
 	return token, nil
+}
+
+func IsExpired(token *jwt.Token) (bool, *errs.AppError) {
+	date, err := token.Claims.GetExpirationTime() //registered claims "exp", etc
+	if err != nil {
+		logger.Error("Error while checking token's expiry time: " + err.Error())
+		return false, errs.NewUnexpectedError(err.Error())
+	}
+	if !date.Time.After(time.Now()) { //token expiry date is before or at current time = expired
+		return true, nil
+	}
+	return false, nil
 }
