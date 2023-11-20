@@ -9,6 +9,7 @@ import (
 	"github.com/udemy-go-1/banking-auth/service"
 	"github.com/udemy-go-1/banking-lib/logger"
 	"net/http"
+	"net/smtp"
 	"os"
 	"time"
 )
@@ -22,6 +23,7 @@ func checkEnvVars() {
 		"DB_ADDRESS",
 		"DB_PORT",
 		"DB_NAME",
+		"MAILHOG_SERVER_PORT",
 	}
 
 	for _, key := range envVars {
@@ -34,20 +36,26 @@ func checkEnvVars() {
 func Start() {
 	checkEnvVars()
 
+	mailClient, disconnectCallback := getMailClient()
+
 	router := mux.NewRouter()
 
 	dbClient := getDbClient()
-	registrationRepositoryDb := domain.NewRegistrationRepositoryDb(dbClient)
 	authRepositoryDb := domain.NewAuthRepositoryDb(dbClient)
-	rh := RegistrationHandler{service.NewRegistrationService(registrationRepositoryDb)}
+	registrationRepositoryDb := domain.NewRegistrationRepositoryDb(dbClient)
+	emailRepositoryDb := domain.NewEmailRepositoryDb(mailClient, disconnectCallback)
 	ah := AuthHandler{service.NewDefaultAuthService(authRepositoryDb, domain.NewRolePermissions())}
+	rh := RegistrationHandler{service.NewRegistrationService(registrationRepositoryDb, emailRepositoryDb)}
 
-	router.HandleFunc("/auth/register", rh.RegisterHandler).Methods(http.MethodPost)
 	router.HandleFunc("/auth/login", ah.LoginHandler).Methods(http.MethodPost)
 	router.HandleFunc("/auth/logout", ah.LogoutHandler).Methods(http.MethodPost)
 	router.HandleFunc("/auth/verify", ah.VerifyHandler).Methods(http.MethodGet)
 	router.HandleFunc("/auth/refresh", ah.RefreshHandler).Methods(http.MethodPost)
 	router.HandleFunc("/auth/continue", ah.ContinueHandler).Methods(http.MethodPost)
+
+	router.HandleFunc("/auth/register", rh.RegisterHandler).Methods(http.MethodPost)
+	router.HandleFunc("/auth/register/check", rh.CheckRegistrationHandler).Methods(http.MethodGet)
+	router.HandleFunc("/auth/register/finish", rh.FinishRegistrationHandler).Methods(http.MethodPost)
 
 	address := os.Getenv("SERVER_ADDRESS")
 	port := os.Getenv("SERVER_PORT")
@@ -74,4 +82,26 @@ func getDbClient() *sqlx.DB {
 	db.SetMaxIdleConns(10)
 
 	return db
+}
+
+// getMailClient starts the smtp server and gets a client connected to it
+func getMailClient() (*smtp.Client, func()) {
+	serverAddr := os.Getenv("SERVER_ADDRESS")
+	mailhogPort := os.Getenv("MAILHOG_SERVER_PORT")
+
+	addr := fmt.Sprintf("%s:%s", serverAddr, mailhogPort)
+	logger.Info("Starting SMTP server...")
+	mailClient, err := smtp.Dial(addr)
+	if err != nil {
+		logger.Fatal("Error while starting SMTP server: " + err.Error())
+	}
+
+	return mailClient, func() {
+		defer func() {
+			logger.Info("Disconnecting from SMTP server...")
+			if err = mailClient.Close(); err != nil {
+				logger.Fatal("Error while closing connection to SMTP server: " + err.Error())
+			}
+		}()
+	}
 }

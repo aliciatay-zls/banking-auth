@@ -11,7 +11,7 @@ const FormatDateTime = "2006-01-02 15:04:05"
 type Registration struct { //business/domain object
 	Id          string `db:"customer_id"`
 	Name        string
-	DateOfBirth string `db:"date_of_birth"`
+	DateOfBirth string `db:"date_of_birth"` //yyyy-mm-dd
 	Email       string
 	City        string
 	Zipcode     string

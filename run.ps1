@@ -6,6 +6,7 @@ $env:DB_PASSWORD = "codecamp"
 $env:DB_ADDRESS = "localhost"
 $env:DB_PORT = "3306"
 $env:DB_NAME = "banking"
+$env:MAILHOG_SERVER_PORT = "1025"
 
 # Run app
 go run main.go

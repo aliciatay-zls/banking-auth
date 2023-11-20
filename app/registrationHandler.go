@@ -9,7 +9,7 @@ import (
 	"net/http"
 )
 
-type RegistrationHandler struct {
+type RegistrationHandler struct { //REST handler (adapter)
 	service service.RegistrationService
 }
 
@@ -30,4 +30,12 @@ func (h RegistrationHandler) RegisterHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	writeJsonResponse(w, http.StatusCreated, response)
+}
+
+func (h RegistrationHandler) CheckRegistrationHandler(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func (h RegistrationHandler) FinishRegistrationHandler(w http.ResponseWriter, r *http.Request) {
+
 }

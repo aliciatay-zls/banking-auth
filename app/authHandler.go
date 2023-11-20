@@ -37,7 +37,7 @@ func (h AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	var tokenStrings dto.TokenStrings
 	if err := json.NewDecoder(r.Body).Decode(&tokenStrings); err != nil {
-		writeJsonResponse(w, http.StatusBadRequest, errs.NewMessageObject("Missing token"))
+		writeJsonResponse(w, http.StatusBadRequest, errs.NewMessageObject(err.Error()))
 		return
 	}
 	if appErr := tokenStrings.ValidateRefreshToken(); appErr != nil {

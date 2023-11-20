@@ -11,11 +11,12 @@ type RegistrationService interface { //service (primary port)
 }
 
 type DefaultRegistrationService struct { //business/domain object
-	repo domain.RegistrationRepository
+	registrationRepo domain.RegistrationRepository
+	emailRepo        domain.EmailRepository
 }
 
-func NewRegistrationService(repo domain.RegistrationRepository) DefaultRegistrationService {
-	return DefaultRegistrationService{repo}
+func NewRegistrationService(regRepo domain.RegistrationRepository, emailRepo domain.EmailRepository) DefaultRegistrationService {
+	return DefaultRegistrationService{regRepo, emailRepo}
 }
 
 func (s DefaultRegistrationService) Register(request dto.RegistrationRequest) (*dto.RegistrationResponse, *errs.AppError) {
@@ -25,10 +26,16 @@ func (s DefaultRegistrationService) Register(request dto.RegistrationRequest) (*
 
 	registration := domain.NewRegistration(request)
 
-	completedRegistration, err := s.repo.Process(registration)
-	if err != nil {
-		return nil, err
+	//processedRegistration, err := s.registrationRepo.Process(registration) //TODO: don't insert into the 3 tables until confirmation done!
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	if appErr := s.emailRepo.SendConfirmationEmail(registration.Email, "https://google.com"); appErr != nil { //TODO: generate link, insert into db, send in email
+		return nil, appErr
 	}
 
-	return completedRegistration.ToDTO(), nil
+	return registration.ToDTO(), nil
 }
+
+//TODO: modify db tables to indicate registration is pending + store confirmation links
