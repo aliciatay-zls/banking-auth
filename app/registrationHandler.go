@@ -23,6 +23,10 @@ func (h RegistrationHandler) RegisterHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	//if appErr := registrationRequest.Validate(); appErr != nil { //TODO: parse fields + sanitize
+	//	writeJsonResponse(w, appErr.Code, appErr.AsMessage())
+	//}
+
 	response, appErr := h.service.Register(registrationRequest)
 	if appErr != nil {
 		writeJsonResponse(w, appErr.Code, appErr.AsMessage())

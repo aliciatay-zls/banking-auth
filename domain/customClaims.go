@@ -9,6 +9,7 @@ import (
 const SECRET = "hmacSampleSecret"
 const AccessTokenDuration = time.Hour
 const RefreshTokenDuration = time.Hour * 24 * 30 //1 month
+const OneTimeTokenDuration = time.Hour
 
 type AccessTokenClaims struct {
 	jwt.RegisteredClaims
@@ -23,6 +24,14 @@ type RefreshTokenClaims struct {
 	Username   string `json:"un"`
 	Role       string `json:"role"`
 	CustomerId string `json:"cid"`
+}
+
+type OneTimeTokenClaims struct {
+	jwt.RegisteredClaims
+	Email         string `json:"email"`
+	Name          string `json:"name"`
+	Username      string `json:"username"`
+	DateRequested string `json:"requested_on"`
 }
 
 // IsIdentityMismatch checks, for users, the identity sent by the client in the request against

@@ -18,12 +18,15 @@ func checkEnvVars() {
 	envVars := []string{
 		"SERVER_ADDRESS",
 		"SERVER_PORT",
+		"MAILHOG_SERVER_ADDRESS",
+		"MAILHOG_SERVER_PORT",
+		"FRONTEND_SERVER_ADDRESS",
+		"FRONTEND_SERVER_PORT",
 		"DB_USER",
 		"DB_PASSWORD",
 		"DB_ADDRESS",
 		"DB_PORT",
 		"DB_NAME",
-		"MAILHOG_SERVER_PORT",
 	}
 
 	for _, key := range envVars {

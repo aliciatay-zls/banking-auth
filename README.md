@@ -5,12 +5,12 @@
 
 2. Ensure the db has been started in the [Resource Server app](https://github.com/udemy-go-1/banking-auth)
 
-3. Start the MailHog SMTP server by running:
+3. In terminal, start the MailHog SMTP server by running:
    ```
    ~/go/bin/MailHog
    ```
 
-4. In terminal, run one of the following:
+4. Open another tab in terminal and run one of the following:
     * `./run.ps1` if using Powershell (e.g. Intellij terminal)
     * `./run.sh`
 

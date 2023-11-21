@@ -1,9 +1,12 @@
 package service
 
 import (
+	"fmt"
 	"github.com/udemy-go-1/banking-auth/domain"
 	"github.com/udemy-go-1/banking-auth/dto"
 	"github.com/udemy-go-1/banking-lib/errs"
+	"net/url"
+	"os"
 )
 
 type RegistrationService interface { //service (primary port)
@@ -20,22 +23,37 @@ func NewRegistrationService(regRepo domain.RegistrationRepository, emailRepo dom
 }
 
 func (s DefaultRegistrationService) Register(request dto.RegistrationRequest) (*dto.RegistrationResponse, *errs.AppError) {
-	//if err := request.Validate(); err != nil { //TODO: parse fields + sanitize
-	//	return nil, err
-	//}
-
 	registration := domain.NewRegistration(request)
 
-	//processedRegistration, err := s.registrationRepo.Process(registration) //TODO: don't insert into the 3 tables until confirmation done!
-	//if err != nil {
-	//	return nil, err
-	//}
+	ott, err := registration.GenerateOneTimeToken()
+	if err != nil {
+		return nil, err
+	}
+	link := buildConfirmationURL(ott)
 
-	if appErr := s.emailRepo.SendConfirmationEmail(registration.Email, "https://google.com"); appErr != nil { //TODO: generate link, insert into db, send in email
+	if err = s.registrationRepo.Save(registration); err != nil {
+		return nil, err
+	}
+
+	if appErr := s.emailRepo.SendConfirmationEmail(registration.Email, link); appErr != nil {
 		return nil, appErr
 	}
 
 	return registration.ToDTO(), nil
 }
 
-//TODO: modify db tables to indicate registration is pending + store confirmation links
+func buildConfirmationURL(ott string) string {
+	addr := os.Getenv("FRONTEND_SERVER_ADDRESS")
+	port := os.Getenv("FRONTEND_SERVER_PORT")
+	u := url.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s:%s", addr, port),
+		Path:   "signup/confirm",
+	}
+
+	v := url.Values{}
+	v.Add("ott", ott)
+	u.RawQuery = v.Encode()
+
+	return u.String()
+}
