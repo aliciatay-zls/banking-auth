@@ -2,6 +2,7 @@ package domain
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/jmoiron/sqlx"
 	"github.com/udemy-go-1/banking-lib/errs"
@@ -13,6 +14,7 @@ type RegistrationRepository interface { //repo (secondary port)
 	Save(Registration) *errs.AppError
 	IsEmailUsed(string) *errs.AppError
 	IsUsernameTaken(string) *errs.AppError
+	GetRegistration(string, string, string) (*Registration, *errs.AppError)
 	Confirm(Registration, string) (*Registration, *errs.AppError)
 }
 
@@ -92,10 +94,25 @@ func (d RegistrationRepositoryDb) IsUsernameTaken(un string) *errs.AppError {
 
 	if isExists {
 		logger.Error("User or registration with given username already exists")
-		return errs.NewAuthorizationError("Username is already taken")
+		return errs.NewConflictError("Username is already taken")
 	}
 
 	return nil //can proceed
+}
+
+func (d RegistrationRepositoryDb) GetRegistration(email string, name string, un string) (*Registration, *errs.AppError) {
+	var registration Registration
+	findSql := "SELECT * FROM registrations WHERE email = ? AND name = ? AND username = ?"
+	if err := d.client.Get(&registration, findSql, email, name, un); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			logger.Error("The given registration does not exist")
+			return nil, errs.NewNotFoundError("Registration not found")
+		}
+		logger.Error("Error while checking if a given registration indeed exists: " + err.Error())
+		return nil, errs.NewUnexpectedError("Unexpected database error")
+	}
+
+	return &registration, nil
 }
 
 // Confirm creates a Customer and a User based on the given Registration. For demonstration purposes, it also
@@ -129,7 +146,7 @@ func (d RegistrationRepositoryDb) Confirm(reg Registration, confirmDate string) 
 	}
 
 	_, err = d.client.Exec("INSERT INTO users VALUES (?, ?, ?, ?, ?)",
-		reg.Username, reg.Password, reg.Role, reg.Id, confirmDate)
+		reg.Username, reg.Password, reg.Role, reg.CustomerId, confirmDate)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
 			logger.Fatal("Error while rolling back creation of new user: " + rollbackErr.Error())
@@ -149,7 +166,7 @@ func (d RegistrationRepositoryDb) Confirm(reg Registration, confirmDate string) 
 		{"checking", 6000, "1"},
 	}
 	for k, v := range newAccounts {
-		result, err = d.client.Exec(insertAccountsSql, reg.Id, confirmDate, v.Type, v.Amount, v.Status)
+		result, err = d.client.Exec(insertAccountsSql, reg.CustomerId, confirmDate, v.Type, v.Amount, v.Status)
 		if err != nil {
 			if rollbackErr := tx.Rollback(); rollbackErr != nil {
 				logger.Fatal(fmt.Sprintf("Error while rolling back creation of new account %d: %s", k+1, err.Error()))
@@ -158,6 +175,8 @@ func (d RegistrationRepositoryDb) Confirm(reg Registration, confirmDate string) 
 			return nil, errs.NewUnexpectedError("Unexpected database error")
 		}
 	}
+
+	//TODO: update Registration record id, status, confirmed_on
 
 	id := strconv.FormatInt(newCustomerId, 10)
 	reg.Confirm(id, confirmDate)

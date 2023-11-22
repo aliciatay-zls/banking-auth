@@ -25,6 +25,7 @@ func (h RegistrationHandler) RegisterHandler(w http.ResponseWriter, r *http.Requ
 
 	//if appErr := registrationRequest.Validate(); appErr != nil { //TODO: parse fields + sanitize
 	//	writeJsonResponse(w, appErr.Code, appErr.AsMessage())
+	//	return
 	//}
 
 	response, appErr := h.service.Register(registrationRequest)
@@ -37,7 +38,25 @@ func (h RegistrationHandler) RegisterHandler(w http.ResponseWriter, r *http.Requ
 }
 
 func (h RegistrationHandler) CheckRegistrationHandler(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
 
+	tokenString := r.URL.Query().Get("ott")
+	if tokenString == "" {
+		writeJsonResponse(w, http.StatusBadRequest, errs.NewMessageObject(errs.MessageMissingToken))
+		return
+	}
+
+	isConfirmed, appErr := h.service.CheckRegistration(tokenString)
+	if appErr != nil {
+		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
+		return
+	}
+	if isConfirmed {
+		writeJsonResponse(w, http.StatusOK, errs.NewMessageObject("Registration already confirmed"))
+		return
+	}
+
+	writeJsonResponse(w, http.StatusOK, errs.NewMessageObject(""))
 }
 
 func (h RegistrationHandler) FinishRegistrationHandler(w http.ResponseWriter, r *http.Request) {

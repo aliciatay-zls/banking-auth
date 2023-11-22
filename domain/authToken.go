@@ -51,13 +51,9 @@ func GetValidAccessTokenFrom(tokenString string, allowExpired bool) (*jwt.Token,
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}),
 	)
 
-	if err != nil || !token.Valid {
+	if err != nil {
 		if !errors.Is(err, jwt.ErrTokenExpired) {
-			var errReason string
-			if err != nil {
-				errReason = err.Error()
-			}
-			logger.Error("Invalid access token " + errReason)
+			logger.Error("Invalid access token " + err.Error())
 			return nil, errs.NewAuthenticationErrorDueToInvalidAccessToken()
 		}
 
@@ -69,7 +65,7 @@ func GetValidAccessTokenFrom(tokenString string, allowExpired bool) (*jwt.Token,
 
 	_, ok := token.Claims.(*AccessTokenClaims)
 	if !ok {
-		logger.Error("Error while parsing access token string with custom claims")
+		logger.Error("Error while type asserting access token claims")
 		return nil, errs.NewUnexpectedError("Unexpected authorization error")
 	}
 
@@ -88,20 +84,16 @@ func GetValidRefreshTokenFrom(tokenString string, allowExpired bool) (*jwt.Token
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}),
 	)
 
-	if err != nil || !token.Valid {
+	if err != nil {
 		if !errors.Is(err, jwt.ErrTokenExpired) || !allowExpired {
-			var errReason string
-			if err != nil {
-				errReason = err.Error()
-			}
-			logger.Error("Invalid or expired refresh token " + errReason)
+			logger.Error("Invalid or expired refresh token: " + err.Error())
 			return nil, errs.NewAuthenticationErrorDueToRefreshToken()
 		}
 	}
 
 	_, ok := token.Claims.(*RefreshTokenClaims)
 	if !ok {
-		logger.Error("Error while parsing refresh token string with custom claims")
+		logger.Error("Error while type asserting refresh token claims")
 		return nil, errs.NewUnexpectedError("Unexpected authorization error")
 	}
 

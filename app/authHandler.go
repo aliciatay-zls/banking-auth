@@ -56,7 +56,7 @@ func (h AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 func (h AuthHandler) VerifyHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("token") == "" {
 		logger.Error("No token in url")
-		writeJsonResponse(w, http.StatusForbidden, errs.NewMessageObject("Missing token"))
+		writeJsonResponse(w, http.StatusUnauthorized, errs.NewMessageObject(errs.MessageMissingToken))
 		return
 	}
 	verifyRequest := dto.VerifyRequest{

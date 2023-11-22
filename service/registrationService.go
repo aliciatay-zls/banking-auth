@@ -11,6 +11,7 @@ import (
 
 type RegistrationService interface { //service (primary port)
 	Register(dto.RegistrationRequest) (*dto.RegistrationResponse, *errs.AppError)
+	CheckRegistration(string) (bool, *errs.AppError)
 }
 
 type DefaultRegistrationService struct { //business/domain object
@@ -73,4 +74,18 @@ func buildConfirmationURL(ott string) string {
 	u.RawQuery = v.Encode()
 
 	return u.String()
+}
+
+func (s DefaultRegistrationService) CheckRegistration(tokenString string) (bool, *errs.AppError) {
+	claims, err := domain.ValidateOneTimeToken(tokenString)
+	if err != nil {
+		return false, err
+	}
+
+	registration, err := s.registrationRepo.GetRegistration(claims.Email, claims.Name, claims.Username)
+	if err != nil {
+		return false, err
+	}
+
+	return registration.IsConfirmed(), nil
 }
