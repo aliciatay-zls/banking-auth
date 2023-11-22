@@ -22,18 +22,35 @@ func NewRegistrationService(regRepo domain.RegistrationRepository, emailRepo dom
 	return DefaultRegistrationService{regRepo, emailRepo}
 }
 
+// Register uses the given dto.RegistrationRequest to check whether any of the following cases are true:
+//
+// 1) the given email was already used to register for an app account
+//
+// 2) there is already a User with the given username, or
+//
+// 3) there is already a Customer with the given email.
+//
+// If so, the request is rejected. Otherwise, it is saved to the db, and a one-time use JWT is generated to form
+// a confirmation link which is then emailed to the requester.
 func (s DefaultRegistrationService) Register(request dto.RegistrationRequest) (*dto.RegistrationResponse, *errs.AppError) {
 	registration := domain.NewRegistration(request)
+
+	if appErr := s.registrationRepo.IsEmailUsed(registration.Email); appErr != nil {
+		return nil, appErr
+	}
+	if appErr := s.registrationRepo.IsUsernameTaken(registration.Username); appErr != nil {
+		return nil, appErr
+	}
+
+	if err := s.registrationRepo.Save(registration); err != nil {
+		return nil, err
+	}
 
 	ott, err := registration.GenerateOneTimeToken()
 	if err != nil {
 		return nil, err
 	}
 	link := buildConfirmationURL(ott)
-
-	if err = s.registrationRepo.Save(registration); err != nil {
-		return nil, err
-	}
 
 	if appErr := s.emailRepo.SendConfirmationEmail(registration.Email, link); appErr != nil {
 		return nil, appErr

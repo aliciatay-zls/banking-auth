@@ -11,8 +11,7 @@ import (
 
 type RegistrationRepository interface { //repo (secondary port)
 	Save(Registration) *errs.AppError
-	IsEmailRegistered(string) *errs.AppError
-	IsEmailTaken(string) *errs.AppError
+	IsEmailUsed(string) *errs.AppError
 	IsUsernameTaken(string) *errs.AppError
 	Confirm(Registration, string) (*Registration, *errs.AppError)
 }
@@ -25,26 +24,8 @@ func NewRegistrationRepositoryDb(dbClient *sqlx.DB) RegistrationRepositoryDb {
 	return RegistrationRepositoryDb{dbClient}
 }
 
-// Save uses the given Registration to check whether any of the following cases are true:
-//
-// 1) the given email was already used to register for an app account
-//
-// 2) there is already a User with the given username, or
-//
-// 3) there is already a Customer with the given email.
-//
-// If so, the Registration is rejected, otherwise it is saved to the db.
+// Save stores the given Registration in the db.
 func (d RegistrationRepositoryDb) Save(reg Registration) *errs.AppError {
-	if appErr := d.IsEmailRegistered(reg.Email); appErr != nil {
-		return appErr
-	}
-	if appErr := d.IsEmailTaken(reg.Email); appErr != nil {
-		return appErr
-	}
-	if appErr := d.IsUsernameTaken(reg.Username); appErr != nil {
-		return appErr
-	}
-
 	_, err := d.client.Exec(`INSERT INTO registrations 
     (email, name, date_of_birth, city, zipcode, username, password, role, requested_on) VALUES (?,?,?,?,?,?,?,?,?)`,
 		reg.Email, reg.Name, reg.DateOfBirth, reg.City, reg.Zipcode, reg.Username, reg.Password, reg.Role, reg.DateRequested)
@@ -55,18 +36,28 @@ func (d RegistrationRepositoryDb) Save(reg Registration) *errs.AppError {
 	return nil
 }
 
-// IsEmailRegistered queries the db for a Registration using the given email, and if it exists,
-// checks whether it has already been confirmed.
-func (d RegistrationRepositoryDb) IsEmailRegistered(email string) *errs.AppError {
+// IsEmailUsed queries the db if there is a Customer who already has the given email or a Registration made using this
+// email (and whether it has already been confirmed). This is to prevent multiple registrations from using the same email.
+func (d RegistrationRepositoryDb) IsEmailUsed(email string) *errs.AppError {
 	var isExists bool
-	findSql := "SELECT EXISTS(SELECT 1 FROM registrations WHERE email = ?)"
-	if err := d.client.Get(&isExists, findSql, email); err != nil {
-		logger.Error("Error while checking if registration already exists: " + err.Error())
+
+	findCustomersSql := "SELECT EXISTS(SELECT 1 FROM customers WHERE email = ?)"
+	if err := d.client.Get(&isExists, findCustomersSql, email); err != nil {
+		logger.Error("Error while checking if customer with given email already exists: " + err.Error())
 		return errs.NewUnexpectedError("Unexpected database error")
 	}
-
 	if isExists {
-		logger.Error("Registration already exists")
+		logger.Error("Customer with given email already exists")
+		return errs.NewAuthorizationError("Email is already used")
+	}
+
+	findRegistrationsSql := "SELECT EXISTS(SELECT 1 FROM registrations WHERE email = ?)"
+	if err := d.client.Get(&isExists, findRegistrationsSql, email); err != nil {
+		logger.Error("Error while checking if registration with given email already exists: " + err.Error())
+		return errs.NewUnexpectedError("Unexpected database error")
+	}
+	if isExists {
+		logger.Error("Registration with given email already exists")
 		errMsg := "Email is already registered for an account"
 
 		var confirmDate sql.NullString
@@ -85,34 +76,22 @@ func (d RegistrationRepositoryDb) IsEmailRegistered(email string) *errs.AppError
 	return nil //can proceed
 }
 
-// IsEmailTaken queries the db for a Customer with the given email.
-func (d RegistrationRepositoryDb) IsEmailTaken(email string) *errs.AppError {
-	var isExists bool
-	findSql := "SELECT EXISTS(SELECT 1 FROM customers WHERE email = ?)"
-	if err := d.client.Get(&isExists, findSql, email); err != nil {
-		logger.Error("Error while checking if customer already exists: " + err.Error())
-		return errs.NewUnexpectedError("Unexpected database error")
-	}
-
-	if isExists {
-		logger.Error("Customer already exists")
-		return errs.NewAuthorizationError("Email is already used")
-	}
-
-	return nil //can proceed
-}
-
-// IsUsernameTaken queries the db for a User with the given username.
+// IsUsernameTaken queries the db for a User who already has the given username or a Registration already made using
+// this username. This is to prevent multiple clients from taking the same username during sign-up.
 func (d RegistrationRepositoryDb) IsUsernameTaken(un string) *errs.AppError {
 	var isExists bool
-	findSql := "SELECT EXISTS(SELECT 1 FROM users WHERE username = ?)"
-	if err := d.client.Get(&isExists, findSql, un); err != nil {
-		logger.Error("Error while checking if user already exists: " + err.Error())
+	findSql := `SELECT EXISTS(
+		(SELECT 1 FROM users WHERE username = ?) 
+		UNION 
+		(SELECT 1 FROM registrations WHERE username = ?)
+	)`
+	if err := d.client.Get(&isExists, findSql, un, un); err != nil {
+		logger.Error("Error while checking if username is taken: " + err.Error())
 		return errs.NewUnexpectedError("Unexpected database error")
 	}
 
 	if isExists {
-		logger.Error("User already exists")
+		logger.Error("User or registration with given username already exists")
 		return errs.NewAuthorizationError("Username is already taken")
 	}
 
