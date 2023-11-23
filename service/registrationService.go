@@ -7,11 +7,13 @@ import (
 	"github.com/udemy-go-1/banking-lib/errs"
 	"net/url"
 	"os"
+	"time"
 )
 
 type RegistrationService interface { //service (primary port)
 	Register(dto.RegistrationRequest) (*dto.RegistrationResponse, *errs.AppError)
 	CheckRegistration(string) (bool, *errs.AppError)
+	FinishRegistration(string) *errs.AppError
 }
 
 type DefaultRegistrationService struct { //business/domain object
@@ -76,6 +78,8 @@ func buildConfirmationURL(ott string) string {
 	return u.String()
 }
 
+// CheckRegistration checks that the given token is valid, trys to retrieve an existing Registration from the token
+// claims, then returns its status.
 func (s DefaultRegistrationService) CheckRegistration(tokenString string) (bool, *errs.AppError) {
 	claims, err := domain.ValidateOneTimeToken(tokenString)
 	if err != nil {
@@ -88,4 +92,31 @@ func (s DefaultRegistrationService) CheckRegistration(tokenString string) (bool,
 	}
 
 	return registration.IsConfirmed(), nil
+}
+
+// FinishRegistration double-checks that the given token is valid, retrieves an existing Registration from the token
+// claims, initializes the new user, and fills the remaining fields of the Registration and uses it to update the db.
+func (s DefaultRegistrationService) FinishRegistration(tokenString string) *errs.AppError {
+	claims, err := domain.ValidateOneTimeToken(tokenString)
+	if err != nil {
+		return err
+	}
+
+	registration, err := s.registrationRepo.GetRegistration(claims.Email, claims.Name, claims.Username)
+	if err != nil {
+		return err
+	}
+
+	createTime := time.Now().Format(domain.FormatDateTime)
+	customerId, err := s.registrationRepo.CreateNecessaryAccounts(registration, createTime)
+	if err != nil {
+		return err
+	}
+
+	completedRegistration := registration.Confirm(customerId, createTime)
+	if err = s.registrationRepo.Update(completedRegistration); err != nil {
+		return err
+	}
+
+	return nil
 }

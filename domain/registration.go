@@ -58,11 +58,11 @@ func (r Registration) IsConfirmed() bool {
 	return r.CustomerId.Valid && r.Status == "1" && r.DateConfirmed.Valid
 }
 
-func (r Registration) Confirm(id string, date string) Registration {
+func (r Registration) Confirm(id string, date string) *Registration {
 	r.CustomerId = sql.NullString{String: id}
 	r.Status = "1"
 	r.DateConfirmed = sql.NullString{String: date}
-	return r
+	return &r
 }
 
 func (r Registration) oneTimeTokenClaims() OneTimeTokenClaims {

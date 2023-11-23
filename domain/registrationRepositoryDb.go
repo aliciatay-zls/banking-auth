@@ -15,7 +15,8 @@ type RegistrationRepository interface { //repo (secondary port)
 	IsEmailUsed(string) *errs.AppError
 	IsUsernameTaken(string) *errs.AppError
 	GetRegistration(string, string, string) (*Registration, *errs.AppError)
-	Confirm(Registration, string) (*Registration, *errs.AppError)
+	CreateNecessaryAccounts(*Registration, string) (string, *errs.AppError)
+	Update(*Registration) *errs.AppError
 }
 
 type RegistrationRepositoryDb struct { //DB (adapter)
@@ -115,44 +116,43 @@ func (d RegistrationRepositoryDb) GetRegistration(email string, name string, un 
 	return &registration, nil
 }
 
-// Confirm creates a Customer and a User based on the given Registration. For demonstration purposes, it also
-// creates two different accounts for the newly-registered user. It then fills the remaining fields of the
-// Registration using the given confirmation date and data returned by the db to indicate that it has been confirmed,
-// and returns the finalized Registration instance.
-func (d RegistrationRepositoryDb) Confirm(reg Registration, confirmDate string) (*Registration, *errs.AppError) {
+// CreateNecessaryAccounts creates the necessary instances for a newly-registered user based on the given Registration:
+// a Customer, then, using the generated customer ID, a User and two different bank accounts (for demonstration
+// purposes). It returns the customer ID.
+func (d RegistrationRepositoryDb) CreateNecessaryAccounts(reg *Registration, createTime string) (string, *errs.AppError) {
 	tx, err := d.client.Begin()
 	if err != nil {
-		logger.Error("Error while starting db transaction for confirming registration: " + err.Error())
-		return nil, errs.NewUnexpectedError("Unexpected database error")
+		logger.Error("Error while starting db transaction for creating accounts for new registration: " + err.Error())
+		return "", errs.NewUnexpectedError("Unexpected database error")
 	}
 
-	result, err := d.client.Exec("INSERT INTO customers (name, date_of_birth, email, city, zipcode, status) VALUES (?, ?, ?, ?, ?, ?)",
+	result, err := tx.Exec("INSERT INTO customers (name, date_of_birth, email, city, zipcode, status) VALUES (?, ?, ?, ?, ?, ?)",
 		reg.Name, reg.DateOfBirth, reg.Email, reg.City, reg.Zipcode, reg.Status)
 	if err != nil {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			logger.Fatal("Error while rolling back creation of new customer: " + rollbackErr.Error())
-		}
 		logger.Error("Error while creating customer: " + err.Error())
-		return nil, errs.NewUnexpectedError("Unexpected database error")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			logger.Error("Error while rolling back creation of new customer: " + rollbackErr.Error())
+		}
+		return "", errs.NewUnexpectedError("Unexpected database error")
 	}
 
 	newCustomerId, err := result.LastInsertId()
 	if err != nil {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			logger.Fatal("Error while rolling back creation of new customer after trying to get id: " + rollbackErr.Error())
-		}
 		logger.Error("Error while getting id of newly inserted customer: " + err.Error())
-		return nil, errs.NewUnexpectedError("Unexpected database error")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			logger.Error("Error while rolling back creation of new customer after trying to get id: " + rollbackErr.Error())
+		}
+		return "", errs.NewUnexpectedError("Unexpected database error")
 	}
 
-	_, err = d.client.Exec("INSERT INTO users VALUES (?, ?, ?, ?, ?)",
-		reg.Username, reg.Password, reg.Role, reg.CustomerId, confirmDate)
+	_, err = tx.Exec("INSERT INTO users VALUES (?, ?, ?, ?, ?)",
+		reg.Username, reg.Password, reg.Role, newCustomerId, createTime)
 	if err != nil {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			logger.Fatal("Error while rolling back creation of new user: " + rollbackErr.Error())
-		}
 		logger.Error("Error while creating user: " + err.Error())
-		return nil, errs.NewUnexpectedError("Unexpected database error")
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			logger.Error("Error while rolling back creation of new user: " + rollbackErr.Error())
+		}
+		return "", errs.NewUnexpectedError("Unexpected database error")
 	}
 
 	// For demonstration purposes
@@ -166,20 +166,39 @@ func (d RegistrationRepositoryDb) Confirm(reg Registration, confirmDate string) 
 		{"checking", 6000, "1"},
 	}
 	for k, v := range newAccounts {
-		result, err = d.client.Exec(insertAccountsSql, reg.CustomerId, confirmDate, v.Type, v.Amount, v.Status)
+		result, err = tx.Exec(insertAccountsSql, newCustomerId, createTime, v.Type, v.Amount, v.Status)
 		if err != nil {
-			if rollbackErr := tx.Rollback(); rollbackErr != nil {
-				logger.Fatal(fmt.Sprintf("Error while rolling back creation of new account %d: %s", k+1, err.Error()))
-			}
 			logger.Error(fmt.Sprintf("Error while creating new account %d: %s", k+1, err.Error()))
-			return nil, errs.NewUnexpectedError("Unexpected database error")
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				logger.Error(fmt.Sprintf("Error while rolling back creation of new account %d: %s", k+1, err.Error()))
+			}
+			return "", errs.NewUnexpectedError("Unexpected database error")
 		}
 	}
 
-	//TODO: update Registration record id, status, confirmed_on
+	if err = tx.Commit(); err != nil {
+		logger.Error("Error while committing transaction for creating accounts for new registration: " + err.Error())
+		return "", errs.NewUnexpectedError("Unexpected database error")
+	}
 
 	id := strconv.FormatInt(newCustomerId, 10)
-	reg.Confirm(id, confirmDate)
+	return id, nil
+}
 
-	return &reg, nil
+// Update uses the confirmed Registration to update its related records in the db.
+func (d RegistrationRepositoryDb) Update(reg *Registration) *errs.AppError {
+	_, err := d.client.Exec("UPDATE registrations SET customer_id = ?, status = ?, confirmed_on = ? WHERE email = ?",
+		reg.CustomerId.String, reg.Status, reg.DateConfirmed.String, reg.Email)
+	if err != nil {
+		logger.Error("Error while updating registration to confirmed status: " + err.Error())
+		return errs.NewUnexpectedError("Unexpected database error")
+	}
+
+	_, err = d.client.Exec("UPDATE customers SET status = ? WHERE customer_id = ?",
+		reg.Status, reg.CustomerId.String)
+	if err != nil {
+		logger.Error("Error while updating customer record to confirmed status: " + err.Error())
+		return errs.NewUnexpectedError("Unexpected database error")
+	}
+	return nil
 }
