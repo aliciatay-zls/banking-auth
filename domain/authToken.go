@@ -63,10 +63,14 @@ func GetValidAccessTokenFrom(tokenString string, allowExpired bool) (*jwt.Token,
 		}
 	}
 
-	_, ok := token.Claims.(*AccessTokenClaims)
+	claims, ok := token.Claims.(*AccessTokenClaims)
 	if !ok {
 		logger.Error("Error while type asserting access token claims")
 		return nil, errs.NewUnexpectedError("Unexpected authorization error")
+	}
+
+	if !claims.IsPrivateClaimsValid() {
+		return nil, errs.NewAuthenticationErrorDueToInvalidAccessToken()
 	}
 
 	return token, nil
@@ -91,10 +95,14 @@ func GetValidRefreshTokenFrom(tokenString string, allowExpired bool) (*jwt.Token
 		}
 	}
 
-	_, ok := token.Claims.(*RefreshTokenClaims)
+	claims, ok := token.Claims.(*RefreshTokenClaims)
 	if !ok {
 		logger.Error("Error while type asserting refresh token claims")
 		return nil, errs.NewUnexpectedError("Unexpected authorization error")
+	}
+
+	if !claims.IsPrivateClaimsValid() {
+		return nil, errs.NewAuthenticationErrorDueToRefreshToken()
 	}
 
 	return token, nil

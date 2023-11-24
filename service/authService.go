@@ -34,6 +34,10 @@ func (s DefaultAuthService) Login(request dto.LoginRequest) (*dto.LoginResponse,
 		return nil, appErr
 	}
 
+	if !auth.IsRoleValid() {
+		return nil, errs.NewUnexpectedError("Unexpected server-side error")
+	}
+
 	authToken := domain.NewAuthToken(auth.AsAccessTokenClaims())
 	var accessToken, refreshToken string
 	if accessToken, appErr = authToken.GenerateAccessToken(); appErr != nil {

@@ -10,6 +10,7 @@ const SECRET = "hmacSampleSecret"
 const AccessTokenDuration = time.Hour
 const RefreshTokenDuration = time.Hour * 24 * 30 //1 month
 const OneTimeTokenDuration = time.Hour
+const TokenTypeRefresh = "refresh token"
 
 type AccessTokenClaims struct {
 	jwt.RegisteredClaims
@@ -34,6 +35,31 @@ type OneTimeTokenClaims struct {
 	DateRequested string `json:"requested_on"`
 }
 
+func (c *AccessTokenClaims) IsPrivateClaimsValid() bool {
+	return isRoleValid(c.Role, c.CustomerId)
+}
+
+func (c *RefreshTokenClaims) IsPrivateClaimsValid() bool {
+	return c.TokenType == TokenTypeRefresh && isRoleValid(c.Role, c.CustomerId)
+}
+
+// isRoleValid is similar to auth.go#IsRoleValid.
+func isRoleValid(role string, cid string) bool {
+	if role != RoleUser && role != RoleAdmin {
+		logger.Error("Token claims has unknown role")
+		return false
+	}
+	if role == RoleUser && cid == "" {
+		logger.Error("Token claims has user role but no customer ID")
+		return false
+	}
+	if role == RoleAdmin && cid != "" {
+		logger.Error("Token claims has admin role but has a customer ID")
+		return false
+	}
+	return true
+}
+
 // IsIdentityMismatch checks, for users, the identity sent by the client in the request against
 // those in the token claims.
 func (c *AccessTokenClaims) IsIdentityMismatch(customerId string) bool {
@@ -56,7 +82,7 @@ func (c *AccessTokenClaims) AsRefreshTokenClaims() RefreshTokenClaims {
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(RefreshTokenDuration)),
 		},
-		TokenType:  "refresh token",
+		TokenType:  TokenTypeRefresh,
 		Username:   c.Username,
 		Role:       c.Role,
 		CustomerId: c.CustomerId, //empty string if admin

@@ -65,7 +65,7 @@ func (r Registration) Confirm(id string, date string) *Registration {
 	return &r
 }
 
-func (r Registration) oneTimeTokenClaims() OneTimeTokenClaims {
+func (r Registration) GetOneTimeTokenClaims() OneTimeTokenClaims {
 	return OneTimeTokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(OneTimeTokenDuration)),
@@ -78,7 +78,7 @@ func (r Registration) oneTimeTokenClaims() OneTimeTokenClaims {
 }
 
 func (r Registration) GenerateOneTimeToken() (string, *errs.AppError) {
-	claims := r.oneTimeTokenClaims()
+	claims := r.GetOneTimeTokenClaims()
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	ss, err := token.SignedString([]byte(SECRET))
