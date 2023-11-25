@@ -14,6 +14,7 @@ type RegistrationRepository interface { //repo (secondary port)
 	Save(Registration) *errs.AppError
 	IsEmailUsed(string) *errs.AppError
 	IsUsernameTaken(string) *errs.AppError
+	IsPossiblyRegistered(string, string) (bool, *errs.AppError)
 	GetRegistration(string, string, string) (*Registration, *errs.AppError)
 	CreateNecessaryAccounts(*Registration, string) (string, *errs.AppError)
 	Update(*Registration) *errs.AppError
@@ -99,6 +100,15 @@ func (d RegistrationRepositoryDb) IsUsernameTaken(un string) *errs.AppError {
 	}
 
 	return nil //can proceed
+}
+
+func (d RegistrationRepositoryDb) IsPossiblyRegistered(un string, pw string) (bool, *errs.AppError) {
+	var isPossible bool
+	findSql := "SELECT EXISTS(SELECT 1 FROM registrations WHERE username = ? AND password = ?)"
+	if err := d.client.Get(&isPossible, findSql, un, pw); err != nil {
+		return false, errs.NewUnexpectedError("Unexpected database error")
+	}
+	return isPossible, nil
 }
 
 func (d RegistrationRepositoryDb) GetRegistration(email string, name string, un string) (*Registration, *errs.AppError) {

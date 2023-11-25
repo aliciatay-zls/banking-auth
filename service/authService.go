@@ -17,21 +17,31 @@ type AuthService interface { //service (primary port)
 }
 
 type DefaultAuthService struct { //business/domain object
-	repo            domain.AuthRepository  //business/domain object depends on repo (repo is a field)
-	rolePermissions domain.RolePermissions //additionally depends on another business/domain object (is a field)
+	authRepo        domain.AuthRepository         //business/domain object depends on repo (repo is a field)
+	regRepo         domain.RegistrationRepository //additionally depends on another repo (is a field)
+	rolePermissions domain.RolePermissions        //additionally depends on another business/domain object (is a field)
 }
 
-func NewDefaultAuthService(repo domain.AuthRepository, rp domain.RolePermissions) DefaultAuthService {
-	return DefaultAuthService{repo, rp}
+func NewDefaultAuthService(ar domain.AuthRepository, rr domain.RegistrationRepository, rp domain.RolePermissions) DefaultAuthService {
+	return DefaultAuthService{ar, rr, rp}
 }
 
 // Login checks the client's credentials and if authenticated, generates and sends back a new pair of access and
 // refresh tokens for the client.
 func (s DefaultAuthService) Login(request dto.LoginRequest) (*dto.LoginResponse, *errs.AppError) { //business/domain object implements service
 	var auth *domain.Auth
-	var appErr *errs.AppError
-	if auth, appErr = s.repo.Authenticate(request.Username, request.Password); appErr != nil {
-		return nil, appErr
+	var appErr, authErr *errs.AppError
+
+	auth, authErr = s.authRepo.Authenticate(request.Username, request.Password)
+	if authErr != nil {
+		isPossiblyRegistered, err := s.regRepo.IsPossiblyRegistered(request.Username, request.Password)
+		if err != nil {
+			return nil, err
+		}
+		if isPossiblyRegistered {
+			return &dto.LoginResponse{IsPendingConfirmation: true}, nil
+		}
+		return nil, authErr
 	}
 
 	if !auth.IsRoleValid() {
@@ -43,15 +53,16 @@ func (s DefaultAuthService) Login(request dto.LoginRequest) (*dto.LoginResponse,
 	if accessToken, appErr = authToken.GenerateAccessToken(); appErr != nil {
 		return nil, appErr
 	}
-	if refreshToken, appErr = s.repo.GenerateRefreshTokenAndSaveToStore(authToken); appErr != nil {
+	if refreshToken, appErr = s.authRepo.GenerateRefreshTokenAndSaveToStore(authToken); appErr != nil {
 		return nil, appErr
 	}
 
 	return &dto.LoginResponse{
-		Role:         auth.Role,
-		CustomerId:   auth.CustomerId.String,
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
+		IsPendingConfirmation: false,
+		Role:                  auth.Role,
+		CustomerId:            auth.CustomerId.String,
+		AccessToken:           accessToken,
+		RefreshToken:          refreshToken,
 	}, nil
 }
 
@@ -60,7 +71,7 @@ func (s DefaultAuthService) Logout(refreshToken string) *errs.AppError {
 		return appErr
 	}
 
-	return s.repo.DeleteRefreshTokenFromStore(refreshToken)
+	return s.authRepo.DeleteRefreshTokenFromStore(refreshToken)
 }
 
 // Verify gets a valid, non-expired JWT from the token string. It then checks the client's
@@ -86,7 +97,7 @@ func (s DefaultAuthService) Verify(request dto.VerifyRequest) *errs.AppError { /
 	}
 
 	if request.AccountId != "" {
-		if err := s.repo.IsAccountUnderCustomer(request.AccountId, request.CustomerId); err != nil {
+		if err := s.authRepo.IsAccountUnderCustomer(request.AccountId, request.CustomerId); err != nil {
 			return err
 		}
 	}
@@ -94,8 +105,8 @@ func (s DefaultAuthService) Verify(request dto.VerifyRequest) *errs.AppError { /
 	return nil
 }
 
-// Refresh checks if a request to get a new access token is valid (both tokens are valid and claims match),
-// before using the validated refresh token to generate a new access token.
+// Refresh checks if a request to get a new access token is valid (both tokens are valid, the client is logged in in
+// the first place, both tokens' claims match), before using the validated refresh token to generate a new access token.
 func (s DefaultAuthService) Refresh(tokenStrings dto.TokenStrings) (*dto.RefreshResponse, *errs.AppError) {
 	var refreshClaims *domain.RefreshTokenClaims
 	var appErr *errs.AppError
@@ -103,8 +114,12 @@ func (s DefaultAuthService) Refresh(tokenStrings dto.TokenStrings) (*dto.Refresh
 		return nil, appErr
 	}
 
-	if appErr = s.repo.FindRefreshToken(tokenStrings.RefreshToken); appErr != nil {
+	isLoggedInBefore, appErr := s.authRepo.FindRefreshToken(tokenStrings.RefreshToken)
+	if appErr != nil {
 		return nil, appErr
+	}
+	if !isLoggedInBefore {
+		return nil, errs.NewAuthenticationErrorDueToRefreshToken()
 	}
 
 	authToken := domain.NewAuthToken(refreshClaims.AsAccessTokenClaims())
@@ -126,12 +141,16 @@ func (s DefaultAuthService) CheckAlreadyLoggedIn(tokenStrings dto.TokenStrings) 
 		return nil, appErr
 	}
 
-	if appErr = s.repo.FindRefreshToken(tokenStrings.RefreshToken); appErr != nil {
+	if appErr = s.authRepo.FindUser(accessClaims.Username, accessClaims.Role, accessClaims.CustomerId); appErr != nil {
 		return nil, appErr
 	}
 
-	if appErr = s.repo.FindUser(accessClaims.Username, accessClaims.Role, accessClaims.CustomerId); appErr != nil {
+	isLoggedInBefore, appErr := s.authRepo.FindRefreshToken(tokenStrings.RefreshToken)
+	if appErr != nil {
 		return nil, appErr
+	}
+	if !isLoggedInBefore {
+		return nil, errs.NewAuthenticationErrorDueToRefreshToken()
 	}
 
 	return &dto.ContinueResponse{Role: accessClaims.Role, CustomerId: accessClaims.CustomerId}, nil

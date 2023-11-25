@@ -12,7 +12,7 @@ type AuthRepository interface { //repo (secondary port)
 	Authenticate(string, string) (*Auth, *errs.AppError)
 	GenerateRefreshTokenAndSaveToStore(AuthToken) (string, *errs.AppError)
 	DeleteRefreshTokenFromStore(string) *errs.AppError
-	FindRefreshToken(string) *errs.AppError
+	FindRefreshToken(string) (bool, *errs.AppError)
 	FindUser(string, string, string) *errs.AppError
 	IsAccountUnderCustomer(string, string) *errs.AppError
 }
@@ -77,39 +77,36 @@ func (d AuthRepositoryDb) DeleteRefreshTokenFromStore(token string) *errs.AppErr
 	return nil
 }
 
-func (d AuthRepositoryDb) FindRefreshToken(token string) *errs.AppError {
-	var isExists int
-	findTokenSql := `SELECT 1 FROM refresh_token_store WHERE refresh_token = ?`
+func (d AuthRepositoryDb) FindRefreshToken(token string) (bool, *errs.AppError) {
+	var isExists bool
+	findTokenSql := `SELECT EXISTS(SELECT 1 FROM refresh_token_store WHERE refresh_token = ?)`
 	if err := d.client.Get(&isExists, findTokenSql, token); err != nil {
 		logger.Error("Error while checking if refresh token exists: " + err.Error())
-		if errors.Is(err, sql.ErrNoRows) {
-			return errs.NewAuthenticationErrorDueToRefreshToken()
-		}
-		return errs.NewUnexpectedError("Unexpected database error")
+		return false, errs.NewUnexpectedError("Unexpected database error")
 	}
 
-	return nil
+	return isExists, nil
 }
 
 func (d AuthRepositoryDb) FindUser(un string, role string, cid string) *errs.AppError {
-	var isExists int
+	var isExists bool
 	var err error
 
 	if cid == "" {
-		findUserSql := `SELECT 1 FROM users WHERE username = ? AND role = ? AND customer_id IS NULL`
+		findUserSql := `SELECT EXISTS(SELECT 1 FROM users WHERE username = ? AND role = ? AND customer_id IS NULL)`
 		err = d.client.Get(&isExists, findUserSql, un, role)
 	} else {
-		findUserSql := `SELECT 1 FROM users WHERE username = ? AND role = ? AND customer_id = ?`
+		findUserSql := `SELECT EXISTS(SELECT 1 FROM users WHERE username = ? AND role = ? AND customer_id = ?)`
 		err = d.client.Get(&isExists, findUserSql, un, role, cid)
 	}
 	if err != nil {
 		logger.Error("Error while checking if user exists: " + err.Error())
-		if errors.Is(err, sql.ErrNoRows) {
-			return errs.NewAuthenticationError("User does not exist")
-		}
 		return errs.NewUnexpectedError("Unexpected database error")
 	}
-
+	if !isExists {
+		logger.Error("User does not exist")
+		return errs.NewAuthenticationError("Cannot continue")
+	}
 	return nil
 }
 

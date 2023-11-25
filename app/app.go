@@ -47,7 +47,7 @@ func Start() {
 	authRepositoryDb := domain.NewAuthRepositoryDb(dbClient)
 	registrationRepositoryDb := domain.NewRegistrationRepositoryDb(dbClient)
 	emailRepositoryDb := domain.NewEmailRepositoryDb(mailClient, disconnectCallback)
-	ah := AuthHandler{service.NewDefaultAuthService(authRepositoryDb, domain.NewRolePermissions())}
+	ah := AuthHandler{service.NewDefaultAuthService(authRepositoryDb, registrationRepositoryDb, domain.NewRolePermissions())}
 	rh := RegistrationHandler{service.NewRegistrationService(registrationRepositoryDb, emailRepositoryDb)}
 
 	router.HandleFunc("/auth/login", ah.LoginHandler).Methods(http.MethodPost)
