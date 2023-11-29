@@ -13,6 +13,7 @@ import (
 type RegistrationService interface { //service (primary port)
 	Register(dto.RegistrationRequest) (*dto.RegistrationResponse, *errs.AppError)
 	CheckRegistration(string) (bool, *errs.AppError)
+	ResendLink(string) *errs.AppError
 	FinishRegistration(string) *errs.AppError
 }
 
@@ -68,7 +69,7 @@ func buildConfirmationURL(ott string) string {
 	u := url.URL{
 		Scheme: "http",
 		Host:   fmt.Sprintf("%s:%s", addr, port),
-		Path:   "signup/confirm",
+		Path:   "register/check",
 	}
 
 	v := url.Values{}
@@ -81,7 +82,7 @@ func buildConfirmationURL(ott string) string {
 // CheckRegistration checks that the given token is valid, trys to retrieve an existing Registration from the token
 // claims, then returns its status.
 func (s DefaultRegistrationService) CheckRegistration(tokenString string) (bool, *errs.AppError) {
-	claims, err := domain.ValidateOneTimeToken(tokenString)
+	claims, err := domain.ValidateOneTimeToken(tokenString, false)
 	if err != nil {
 		return false, err
 	}
@@ -94,10 +95,34 @@ func (s DefaultRegistrationService) CheckRegistration(tokenString string) (bool,
 	return registration.IsConfirmed(), nil
 }
 
+func (s DefaultRegistrationService) ResendLink(tokenString string) *errs.AppError {
+	claims, err := domain.ValidateOneTimeToken(tokenString, true)
+	if err != nil {
+		return err
+	}
+
+	registration, err := s.registrationRepo.GetRegistration(claims.Email, claims.Name, claims.Username)
+	if err != nil {
+		return err
+	}
+
+	ott, err := registration.GenerateOneTimeToken()
+	if err != nil {
+		return err
+	}
+	link := buildConfirmationURL(ott)
+
+	if err = s.emailRepo.SendConfirmationEmail(registration.Email, link); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // FinishRegistration double-checks that the given token is valid, retrieves an existing Registration from the token
 // claims, initializes the new user, and fills the remaining fields of the Registration and uses it to update the db.
 func (s DefaultRegistrationService) FinishRegistration(tokenString string) *errs.AppError {
-	claims, err := domain.ValidateOneTimeToken(tokenString)
+	claims, err := domain.ValidateOneTimeToken(tokenString, false)
 	if err != nil {
 		return err
 	}

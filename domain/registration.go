@@ -89,7 +89,7 @@ func (r Registration) GenerateOneTimeToken() (string, *errs.AppError) {
 	return ss, nil
 }
 
-func ValidateOneTimeToken(tokenString string) (*OneTimeTokenClaims, *errs.AppError) {
+func ValidateOneTimeToken(tokenString string, allowExpired bool) (*OneTimeTokenClaims, *errs.AppError) {
 	token, err := jwt.ParseWithClaims(
 		tokenString,
 		&OneTimeTokenClaims{},
@@ -100,11 +100,14 @@ func ValidateOneTimeToken(tokenString string) (*OneTimeTokenClaims, *errs.AppErr
 	)
 
 	if err != nil {
-		logger.Error("Error while parsing one time token: " + err.Error())
-		if errors.Is(err, jwt.ErrTokenExpired) {
+		if !errors.Is(err, jwt.ErrTokenExpired) {
+			logger.Error("Error while parsing one time token: " + err.Error())
+			return nil, errs.NewAuthenticationError("Invalid OTT")
+		}
+		if errors.Is(err, jwt.ErrTokenExpired) && !allowExpired {
+			logger.Error("Expired OTT")
 			return nil, errs.NewAuthenticationError("Expired OTT")
 		}
-		return nil, errs.NewAuthenticationError("Invalid OTT")
 	}
 
 	claims, ok := token.Claims.(*OneTimeTokenClaims)

@@ -60,10 +60,28 @@ func (h RegistrationHandler) CheckRegistrationHandler(w http.ResponseWriter, r *
 	writeJsonResponse(w, http.StatusOK, errs.NewMessageObject(""))
 }
 
+func (h RegistrationHandler) ResendHandler(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+
+	tokenString := r.URL.Query().Get("ott")
+	if tokenString == "" {
+		logger.Error("No token in url")
+		writeJsonResponse(w, http.StatusBadRequest, errs.NewMessageObject(errs.MessageMissingToken))
+		return
+	}
+
+	if appErr := h.service.ResendLink(tokenString); appErr != nil {
+		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
+		return
+	}
+
+	writeJsonResponse(w, http.StatusOK, errs.NewMessageObject(""))
+}
+
 func (h RegistrationHandler) FinishRegistrationHandler(w http.ResponseWriter, r *http.Request) {
 	enableCORS(w)
 
-	var request dto.FinishRegistrationRequest //try out: POST using postman
+	var request dto.FinishRegistrationRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		logger.Error("Error while decoding json body of finish registration request: " + err.Error())
 		writeJsonResponse(w, http.StatusBadRequest, errs.NewMessageObject(err.Error()))
