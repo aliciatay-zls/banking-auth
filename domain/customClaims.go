@@ -30,7 +30,7 @@ type RefreshTokenClaims struct {
 type OneTimeTokenClaims struct {
 	jwt.RegisteredClaims
 	Email         string `json:"email"`
-	Name          string `json:"name"`
+	Name          string `json:"full_name"`
 	Username      string `json:"username"`
 	DateRequested string `json:"requested_on"`
 }

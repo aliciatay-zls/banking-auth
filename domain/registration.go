@@ -17,7 +17,7 @@ type Registration struct { //business/domain object
 	CustomerId  sql.NullString `db:"customer_id"`
 	Name        string
 	DateOfBirth string `db:"date_of_birth"` //yyyy-mm-dd
-	City        string
+	Country     string
 	Zipcode     string
 	Status      string
 
@@ -36,7 +36,7 @@ func NewRegistration(req dto.RegistrationRequest) Registration {
 		Email:       req.Email,
 		Name:        req.Name,
 		DateOfBirth: req.DateOfBirth,
-		City:        req.City,
+		Country:     req.Country,
 		Zipcode:     req.Zipcode,
 
 		Username: req.Username,

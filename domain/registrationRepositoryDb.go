@@ -31,8 +31,8 @@ func NewRegistrationRepositoryDb(dbClient *sqlx.DB) RegistrationRepositoryDb {
 // Save stores the given Registration in the db.
 func (d RegistrationRepositoryDb) Save(reg Registration) *errs.AppError {
 	_, err := d.client.Exec(`INSERT INTO registrations 
-    (email, name, date_of_birth, city, zipcode, username, password, role, requested_on) VALUES (?,?,?,?,?,?,?,?,?)`,
-		reg.Email, reg.Name, reg.DateOfBirth, reg.City, reg.Zipcode, reg.Username, reg.Password, reg.Role, reg.DateRequested)
+    (email, name, date_of_birth, country, zipcode, username, password, role, requested_on) VALUES (?,?,?,?,?,?,?,?,?)`,
+		reg.Email, reg.Name, reg.DateOfBirth, reg.Country, reg.Zipcode, reg.Username, reg.Password, reg.Role, reg.DateRequested)
 	if err != nil {
 		logger.Error("Error while saving registration: " + err.Error())
 		return errs.NewUnexpectedError("Unexpected database error")
@@ -136,8 +136,8 @@ func (d RegistrationRepositoryDb) CreateNecessaryAccounts(reg *Registration, cre
 		return "", errs.NewUnexpectedError("Unexpected database error")
 	}
 
-	result, err := tx.Exec("INSERT INTO customers (name, date_of_birth, email, city, zipcode, status) VALUES (?, ?, ?, ?, ?, ?)",
-		reg.Name, reg.DateOfBirth, reg.Email, reg.City, reg.Zipcode, reg.Status)
+	result, err := tx.Exec("INSERT INTO customers (name, date_of_birth, email, country, zipcode, status) VALUES (?, ?, ?, ?, ?, ?)",
+		reg.Name, reg.DateOfBirth, reg.Email, reg.Country, reg.Zipcode, reg.Status)
 	if err != nil {
 		logger.Error("Error while creating customer: " + err.Error())
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
