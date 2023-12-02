@@ -15,7 +15,7 @@ type RegistrationRepository interface { //repo (secondary port)
 	IsEmailUsed(string) *errs.AppError
 	IsUsernameTaken(string) *errs.AppError
 	IsPossiblyRegistered(string, string) (bool, *errs.AppError)
-	GetRegistration(string, string, string) (*Registration, *errs.AppError)
+	GetRegistration(string) (*Registration, *errs.AppError)
 	CreateNecessaryAccounts(*Registration, string) (string, *errs.AppError)
 	Update(*Registration) *errs.AppError
 }
@@ -111,10 +111,10 @@ func (d RegistrationRepositoryDb) IsPossiblyRegistered(un string, pw string) (bo
 	return isPossible, nil
 }
 
-func (d RegistrationRepositoryDb) GetRegistration(email string, name string, un string) (*Registration, *errs.AppError) {
+func (d RegistrationRepositoryDb) GetRegistration(email string) (*Registration, *errs.AppError) {
 	var registration Registration
-	findSql := "SELECT * FROM registrations WHERE email = ? AND name = ? AND username = ?"
-	if err := d.client.Get(&registration, findSql, email, name, un); err != nil {
+	findSql := "SELECT * FROM registrations WHERE email = ?"
+	if err := d.client.Get(&registration, findSql, email); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			logger.Error("The given registration does not exist")
 			return nil, errs.NewNotFoundError("Registration not found")

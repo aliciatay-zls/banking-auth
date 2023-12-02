@@ -13,7 +13,7 @@ import (
 type RegistrationService interface { //service (primary port)
 	Register(dto.RegistrationRequest) (*dto.RegistrationResponse, *errs.AppError)
 	CheckRegistration(string) (bool, *errs.AppError)
-	ResendLink(string) *errs.AppError
+	ResendLink(dto.ResendRequest) *errs.AppError
 	FinishRegistration(string) *errs.AppError
 }
 
@@ -87,7 +87,7 @@ func (s DefaultRegistrationService) CheckRegistration(tokenString string) (bool,
 		return false, err
 	}
 
-	registration, err := s.registrationRepo.GetRegistration(claims.Email, claims.Name, claims.Username)
+	registration, err := s.registrationRepo.GetRegistration(claims.Email)
 	if err != nil {
 		return false, err
 	}
@@ -95,13 +95,19 @@ func (s DefaultRegistrationService) CheckRegistration(tokenString string) (bool,
 	return registration.IsConfirmed(), nil
 }
 
-func (s DefaultRegistrationService) ResendLink(tokenString string) *errs.AppError {
-	claims, err := domain.ValidateOneTimeToken(tokenString, true)
-	if err != nil {
-		return err
+func (s DefaultRegistrationService) ResendLink(request dto.ResendRequest) *errs.AppError {
+	var email string
+	if request.Type == dto.ResendRequestTypeUsingToken {
+		claims, err := domain.ValidateOneTimeToken(request.TokenString, true)
+		if err != nil {
+			return err
+		}
+		email = claims.Email
+	} else if request.Type == dto.ResendRequestTypeUsingEmail {
+		email = request.Email
 	}
 
-	registration, err := s.registrationRepo.GetRegistration(claims.Email, claims.Name, claims.Username)
+	registration, err := s.registrationRepo.GetRegistration(email)
 	if err != nil {
 		return err
 	}
@@ -127,7 +133,7 @@ func (s DefaultRegistrationService) FinishRegistration(tokenString string) *errs
 		return err
 	}
 
-	registration, err := s.registrationRepo.GetRegistration(claims.Email, claims.Name, claims.Username)
+	registration, err := s.registrationRepo.GetRegistration(claims.Email)
 	if err != nil {
 		return err
 	}

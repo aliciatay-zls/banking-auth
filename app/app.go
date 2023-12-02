@@ -58,7 +58,7 @@ func Start() {
 
 	router.HandleFunc("/auth/register", rh.RegisterHandler).Methods(http.MethodPost)
 	router.HandleFunc("/auth/register/check", rh.CheckRegistrationHandler).Methods(http.MethodGet)
-	router.HandleFunc("/auth/register/resend", rh.ResendHandler).Methods(http.MethodGet)
+	router.HandleFunc("/auth/register/resend", rh.ResendHandler).Methods(http.MethodGet, http.MethodPost)
 	router.HandleFunc("/auth/register/finish", rh.FinishRegistrationHandler).Methods(http.MethodPost)
 
 	address := os.Getenv("SERVER_ADDRESS")
