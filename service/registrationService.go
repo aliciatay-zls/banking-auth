@@ -87,7 +87,7 @@ func (s DefaultRegistrationService) CheckRegistration(tokenString string) (bool,
 		return false, err
 	}
 
-	registration, err := s.registrationRepo.GetRegistration(claims.Email)
+	registration, err := s.registrationRepo.GetRegistrationFromEmail(claims.Email)
 	if err != nil {
 		return false, err
 	}
@@ -107,7 +107,7 @@ func (s DefaultRegistrationService) ResendLink(request dto.ResendRequest) *errs.
 		email = request.Email
 	}
 
-	registration, err := s.registrationRepo.GetRegistration(email)
+	registration, err := s.registrationRepo.GetRegistrationFromEmail(email)
 	if err != nil {
 		return err
 	}
@@ -133,7 +133,7 @@ func (s DefaultRegistrationService) FinishRegistration(tokenString string) *errs
 		return err
 	}
 
-	registration, err := s.registrationRepo.GetRegistration(claims.Email)
+	registration, err := s.registrationRepo.GetRegistrationFromEmail(claims.Email)
 	if err != nil {
 		return err
 	}

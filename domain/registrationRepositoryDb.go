@@ -14,8 +14,8 @@ type RegistrationRepository interface { //repo (secondary port)
 	Save(Registration) *errs.AppError
 	IsEmailUsed(string) *errs.AppError
 	IsUsernameTaken(string) *errs.AppError
-	IsPossiblyRegistered(string, string) (bool, *errs.AppError)
-	GetRegistration(string) (*Registration, *errs.AppError)
+	GetRegistrationFromLoginDetails(string, string) (*Registration, *errs.AppError)
+	GetRegistrationFromEmail(string) (*Registration, *errs.AppError)
 	CreateNecessaryAccounts(*Registration, string) (string, *errs.AppError)
 	Update(*Registration) *errs.AppError
 }
@@ -102,16 +102,20 @@ func (d RegistrationRepositoryDb) IsUsernameTaken(un string) *errs.AppError {
 	return nil //can proceed
 }
 
-func (d RegistrationRepositoryDb) IsPossiblyRegistered(un string, pw string) (bool, *errs.AppError) {
-	var isPossible bool
-	findSql := "SELECT EXISTS(SELECT 1 FROM registrations WHERE username = ? AND password = ?)"
-	if err := d.client.Get(&isPossible, findSql, un, pw); err != nil {
-		return false, errs.NewUnexpectedError("Unexpected database error")
+func (d RegistrationRepositoryDb) GetRegistrationFromLoginDetails(un string, pw string) (*Registration, *errs.AppError) {
+	var registration Registration
+	findSql := "SELECT * FROM registrations WHERE username = ? AND password = ?"
+	if err := d.client.Get(&registration, findSql, un, pw); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		logger.Error("Error while checking if a registration exists for the given login details: " + err.Error())
+		return nil, errs.NewUnexpectedError("Unexpected database error")
 	}
-	return isPossible, nil
+	return &registration, nil
 }
 
-func (d RegistrationRepositoryDb) GetRegistration(email string) (*Registration, *errs.AppError) {
+func (d RegistrationRepositoryDb) GetRegistrationFromEmail(email string) (*Registration, *errs.AppError) {
 	var registration Registration
 	findSql := "SELECT * FROM registrations WHERE email = ?"
 	if err := d.client.Get(&registration, findSql, email); err != nil {

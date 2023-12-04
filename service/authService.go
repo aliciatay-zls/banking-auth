@@ -26,20 +26,25 @@ func NewDefaultAuthService(ar domain.AuthRepository, rr domain.RegistrationRepos
 	return DefaultAuthService{ar, rr, rp}
 }
 
-// Login checks the client's credentials and if authenticated, generates and sends back a new pair of access and
-// refresh tokens for the client.
+// Login authenticates the client's credentials, generating and sending back a new pair of access and refresh tokens.
+// If not authenticated, it checks if the client has registered before, in which case it informs the client that
+// the registration is pending email confirmation.
 func (s DefaultAuthService) Login(request dto.LoginRequest) (*dto.LoginResponse, *errs.AppError) { //business/domain object implements service
 	var auth *domain.Auth
 	var appErr, authErr *errs.AppError
 
 	auth, authErr = s.authRepo.Authenticate(request.Username, request.Password)
 	if authErr != nil {
-		isPossiblyRegistered, err := s.regRepo.IsPossiblyRegistered(request.Username, request.Password)
+		registration, err := s.regRepo.GetRegistrationFromLoginDetails(request.Username, request.Password)
 		if err != nil {
 			return nil, err
 		}
-		if isPossiblyRegistered {
-			return &dto.LoginResponse{IsPendingConfirmation: true}, nil
+		if registration != nil {
+			ott, genErr := registration.GenerateOneTimeToken()
+			if genErr != nil {
+				return nil, err
+			}
+			return &dto.LoginResponse{IsPendingConfirmation: true, AccessToken: ott}, nil
 		}
 		return nil, authErr
 	}
