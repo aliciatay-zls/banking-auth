@@ -50,14 +50,8 @@ func (s DefaultRegistrationService) Register(request dto.RegistrationRequest) (*
 		return nil, err
 	}
 
-	ott, err := registration.GenerateOneTimeToken()
-	if err != nil {
+	if err := s.createAndSendLink(registration); err != nil {
 		return nil, err
-	}
-	link := buildConfirmationURL(ott)
-
-	if appErr := s.emailRepo.SendConfirmationEmail(registration.Email, link); appErr != nil {
-		return nil, appErr
 	}
 
 	return registration.ToDTO(), nil
@@ -79,7 +73,26 @@ func buildConfirmationURL(ott string) string {
 	return u.String()
 }
 
-// CheckRegistration checks that the given token is valid, trys to retrieve an existing Registration from the token
+func (s DefaultRegistrationService) createAndSendLink(reg domain.Registration) *errs.AppError {
+	ott, err := reg.GenerateOneTimeToken()
+	if err != nil {
+		return err
+	}
+	link := buildConfirmationURL(ott)
+
+	timeEmailed, err := s.emailRepo.SendConfirmationEmail(reg.Email, link)
+	if err != nil {
+		return err
+	}
+
+	if err = s.registrationRepo.UpdateLastEmailedInfo(reg, timeEmailed); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// CheckRegistration checks that the given token is valid, tries to retrieve an existing Registration from the token
 // claims, then returns its status.
 func (s DefaultRegistrationService) CheckRegistration(tokenString string) (bool, *errs.AppError) {
 	claims, err := domain.ValidateOneTimeToken(tokenString, false)
@@ -87,7 +100,7 @@ func (s DefaultRegistrationService) CheckRegistration(tokenString string) (bool,
 		return false, err
 	}
 
-	registration, err := s.registrationRepo.GetRegistrationFromEmail(claims.Email)
+	registration, err := s.registrationRepo.FindFromEmail(claims.Email)
 	if err != nil {
 		return false, err
 	}
@@ -95,6 +108,8 @@ func (s DefaultRegistrationService) CheckRegistration(tokenString string) (bool,
 	return registration.IsConfirmed(), nil
 }
 
+// ResendLink retrieves the recipient's email from the token claims if needed, tries to retrieve an existing
+// Registration from the email and checks if resending the confirmation link to this email is allowed before doing so.
 func (s DefaultRegistrationService) ResendLink(request dto.ResendRequest) *errs.AppError {
 	var email string
 	if request.Type == dto.ResendRequestTypeUsingToken {
@@ -107,18 +122,16 @@ func (s DefaultRegistrationService) ResendLink(request dto.ResendRequest) *errs.
 		email = request.Email
 	}
 
-	registration, err := s.registrationRepo.GetRegistrationFromEmail(email)
+	registration, err := s.registrationRepo.FindFromEmail(email)
 	if err != nil {
 		return err
 	}
 
-	ott, err := registration.GenerateOneTimeToken()
-	if err != nil {
+	if err = registration.CanResendEmail(); err != nil {
 		return err
 	}
-	link := buildConfirmationURL(ott)
 
-	if err = s.emailRepo.SendConfirmationEmail(registration.Email, link); err != nil {
+	if err = s.createAndSendLink(*registration); err != nil {
 		return err
 	}
 
@@ -133,7 +146,7 @@ func (s DefaultRegistrationService) FinishRegistration(tokenString string) *errs
 		return err
 	}
 
-	registration, err := s.registrationRepo.GetRegistrationFromEmail(claims.Email)
+	registration, err := s.registrationRepo.FindFromEmail(claims.Email)
 	if err != nil {
 		return err
 	}

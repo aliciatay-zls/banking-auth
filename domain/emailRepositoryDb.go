@@ -5,10 +5,11 @@ import (
 	"github.com/udemy-go-1/banking-lib/errs"
 	"github.com/udemy-go-1/banking-lib/logger"
 	"net/smtp"
+	"time"
 )
 
 type EmailRepository interface {
-	SendConfirmationEmail(string, string) *errs.AppError
+	SendConfirmationEmail(string, string) (string, *errs.AppError)
 }
 
 type EmailRepositoryDb struct {
@@ -23,30 +24,30 @@ func NewEmailRepositoryDb(mailClient *smtp.Client, disconnectCallback func()) Em
 
 // SendConfirmationEmail registers the sender and recipient with the SMTP server before writing the email and
 // closing the email writer.
-func (d EmailRepositoryDb) SendConfirmationEmail(rcptAddr string, link string) *errs.AppError {
+func (d EmailRepositoryDb) SendConfirmationEmail(rcptAddr string, link string) (string, *errs.AppError) {
 	if err := d.client.Mail(d.senderAddr); err != nil {
 		logger.Fatal("Error while starting mail transaction: " + err.Error())
 	}
 	if err := d.client.Rcpt(rcptAddr); err != nil {
 		logger.Error(fmt.Sprintf("Error sending email to %s: %s", rcptAddr, err.Error()))
-		return errs.NewUnexpectedError("Unexpected error sending confirmation email")
+		return "", errs.NewUnexpectedError("Unexpected error sending confirmation email")
 	}
 
 	wc, err := d.client.Data()
 	if err != nil {
 		logger.Error("Error getting writer: " + err.Error())
-		return errs.NewUnexpectedError("Unexpected error sending confirmation email")
+		return "", errs.NewUnexpectedError("Unexpected error sending confirmation email")
 	}
 	if _, err = wc.Write([]byte(d.buildEmail(rcptAddr, link))); err != nil {
 		logger.Error("Error writing email: " + err.Error())
-		return errs.NewUnexpectedError("Unexpected error sending confirmation email")
+		return "", errs.NewUnexpectedError("Unexpected error sending confirmation email")
 	}
 	if err = wc.Close(); err != nil {
 		logger.Error("Error closing writer: " + err.Error())
-		return errs.NewUnexpectedError("Unexpected error sending confirmation email")
+		return "", errs.NewUnexpectedError("Unexpected error sending confirmation email")
 	}
 
-	return nil
+	return time.Now().Format(FormatDateTime), nil
 }
 
 // buildEmail forms the email using the recipient's email address and unique confirmation link.

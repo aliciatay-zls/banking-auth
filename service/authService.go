@@ -35,7 +35,7 @@ func (s DefaultAuthService) Login(request dto.LoginRequest) (*dto.LoginResponse,
 
 	auth, authErr = s.authRepo.Authenticate(request.Username, request.Password)
 	if authErr != nil {
-		registration, err := s.regRepo.GetRegistrationFromLoginDetails(request.Username, request.Password)
+		registration, err := s.regRepo.FindFromLoginDetails(request.Username, request.Password)
 		if err != nil {
 			return nil, err
 		}

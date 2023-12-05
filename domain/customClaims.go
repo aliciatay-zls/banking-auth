@@ -29,10 +29,10 @@ type RefreshTokenClaims struct {
 
 type OneTimeTokenClaims struct {
 	jwt.RegisteredClaims
-	Email         string `json:"email"`
-	Name          string `json:"full_name"`
-	Username      string `json:"username"`
-	DateRequested string `json:"requested_on"`
+	Email          string `json:"email"`
+	Name           string `json:"full_name"`
+	Username       string `json:"username"`
+	DateRegistered string `json:"created_on"`
 }
 
 func (c *AccessTokenClaims) IsPrivateClaimsValid() bool {

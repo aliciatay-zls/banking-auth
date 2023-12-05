@@ -11,6 +11,8 @@ import (
 )
 
 const FormatDateTime = "2006-01-02 15:04:05"
+const ResendEmailAllowedAttempts = 11 //additional 1 attempt since during registration an email is already sent
+const ResendEmailAllowedInterval = time.Minute
 
 type Registration struct { //business/domain object
 	Email       string
@@ -25,8 +27,11 @@ type Registration struct { //business/domain object
 	Password string
 	Role     string
 
-	DateRequested string         `db:"requested_on"`
-	DateConfirmed sql.NullString `db:"confirmed_on"`
+	EmailAttempts int `db:"email_attempts"` //to reset daily using pipeline
+
+	DateRegistered  string         `db:"created_on"`
+	DateLastEmailed string         `db:"last_emailed_on"`
+	DateConfirmed   sql.NullString `db:"confirmed_on"`
 }
 
 // NewRegistration creates a new Registration object, filling all fields except CustomerId, Status and DateConfirmed,
@@ -43,15 +48,49 @@ func NewRegistration(req dto.RegistrationRequest) Registration {
 		Password: req.Password,
 		Role:     RoleUser,
 
-		DateRequested: time.Now().Format(FormatDateTime),
+		DateRegistered: time.Now().Format(FormatDateTime),
 	}
 }
 
 func (r Registration) ToDTO() *dto.RegistrationResponse {
 	return &dto.RegistrationResponse{
-		Email:         r.Email,
-		DateRequested: r.DateRequested,
+		Email:          r.Email,
+		DateRegistered: r.DateRegistered,
 	}
+}
+
+func (r Registration) CanResendEmail() *errs.AppError {
+	if r.IsConfirmed() {
+		logger.Error("Cannot resend email as registration is already confirmed")
+		return errs.NewValidationError("Already confirmed")
+	}
+
+	if r.EmailAttempts >= ResendEmailAllowedAttempts {
+		logger.Error("Cannot resend email as maximum daily attempts reached")
+		return errs.NewValidationError("Maximum daily attempts reached")
+	}
+
+	lastEmailed, err := time.Parse(FormatDateTime, r.DateLastEmailed)
+	if err != nil {
+		logger.Error("Cannot resend email due to error while parsing last emailed time to time object")
+		return errs.NewUnexpectedError("Unexpected server-side error")
+	}
+
+	currTime, err := time.Parse(FormatDateTime, time.Now().Format(FormatDateTime))
+	if err != nil {
+		logger.Error("Cannot resend email due to error while parsing current time to time object")
+		return errs.NewUnexpectedError("Unexpected server-side error")
+	}
+
+	logger.Info(lastEmailed.String())
+	logger.Info(currTime.String())
+
+	if currTime.Sub(lastEmailed) <= ResendEmailAllowedInterval {
+		logger.Error("Cannot resend email as attempts made are too frequent")
+		return errs.NewValidationError("Too many attempts")
+	}
+
+	return nil
 }
 
 func (r Registration) IsConfirmed() bool {
@@ -70,10 +109,10 @@ func (r Registration) GetOneTimeTokenClaims() OneTimeTokenClaims {
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(OneTimeTokenDuration)),
 		},
-		Email:         r.Email,
-		Name:          r.Name,
-		Username:      r.Username,
-		DateRequested: r.DateRequested,
+		Email:          r.Email,
+		Name:           r.Name,
+		Username:       r.Username,
+		DateRegistered: r.DateRegistered,
 	}
 }
 

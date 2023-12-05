@@ -11,11 +11,12 @@ import (
 )
 
 type RegistrationRepository interface { //repo (secondary port)
-	Save(Registration) *errs.AppError
 	IsEmailUsed(string) *errs.AppError
 	IsUsernameTaken(string) *errs.AppError
-	GetRegistrationFromLoginDetails(string, string) (*Registration, *errs.AppError)
-	GetRegistrationFromEmail(string) (*Registration, *errs.AppError)
+	Save(Registration) *errs.AppError
+	UpdateLastEmailedInfo(Registration, string) *errs.AppError
+	FindFromLoginDetails(string, string) (*Registration, *errs.AppError)
+	FindFromEmail(string) (*Registration, *errs.AppError)
 	CreateNecessaryAccounts(*Registration, string) (string, *errs.AppError)
 	Update(*Registration) *errs.AppError
 }
@@ -26,18 +27,6 @@ type RegistrationRepositoryDb struct { //DB (adapter)
 
 func NewRegistrationRepositoryDb(dbClient *sqlx.DB) RegistrationRepositoryDb {
 	return RegistrationRepositoryDb{dbClient}
-}
-
-// Save stores the given Registration in the db.
-func (d RegistrationRepositoryDb) Save(reg Registration) *errs.AppError {
-	_, err := d.client.Exec(`INSERT INTO registrations 
-    (email, name, date_of_birth, country, zipcode, username, password, role, requested_on) VALUES (?,?,?,?,?,?,?,?,?)`,
-		reg.Email, reg.Name, reg.DateOfBirth, reg.Country, reg.Zipcode, reg.Username, reg.Password, reg.Role, reg.DateRequested)
-	if err != nil {
-		logger.Error("Error while saving registration: " + err.Error())
-		return errs.NewUnexpectedError("Unexpected database error")
-	}
-	return nil
 }
 
 // IsEmailUsed queries the db if there is a Customer who already has the given email or a Registration made using this
@@ -102,7 +91,39 @@ func (d RegistrationRepositoryDb) IsUsernameTaken(un string) *errs.AppError {
 	return nil //can proceed
 }
 
-func (d RegistrationRepositoryDb) GetRegistrationFromLoginDetails(un string, pw string) (*Registration, *errs.AppError) {
+// Save stores the given Registration in the db.
+func (d RegistrationRepositoryDb) Save(reg Registration) *errs.AppError {
+	_, err := d.client.Exec(`INSERT INTO registrations 
+    (email, name, date_of_birth, country, zipcode, username, password, role, created_on) VALUES (?,?,?,?,?,?,?,?,?)`,
+		reg.Email, reg.Name, reg.DateOfBirth, reg.Country, reg.Zipcode, reg.Username, reg.Password, reg.Role, reg.DateRegistered)
+	if err != nil {
+		logger.Error("Error while saving registration: " + err.Error())
+		return errs.NewUnexpectedError("Unexpected database error")
+	}
+	return nil
+}
+
+// UpdateLastEmailedInfo increments the number of times a confirmation link has been sent to the email in the given
+// Registration, and updates the last send time using the given time string. This indicates a new link has been sent.
+func (d RegistrationRepositoryDb) UpdateLastEmailedInfo(reg Registration, timeStr string) *errs.AppError {
+	var numEmailAttempts int
+	getSql := "SELECT email_attempts FROM registrations WHERE email = ?"
+	if err := d.client.Get(&numEmailAttempts, getSql, reg.Email); err != nil {
+		logger.Error("Error while getting previous number of email attempts: " + err.Error())
+		return errs.NewUnexpectedError("Unexpected database error")
+	}
+
+	updateSql := "UPDATE registrations SET email_attempts = ?, last_emailed_on = ? WHERE email = ?"
+	if _, err := d.client.Exec(updateSql, numEmailAttempts+1, timeStr, reg.Email); err != nil {
+		logger.Error("Error while updating last emailed information for a registration: " + err.Error())
+		return errs.NewUnexpectedError("Unexpected database error")
+	}
+	return nil
+}
+
+// FindFromLoginDetails retrieves a Registration record using the given username and password. It may or may not exist
+// yet during login, so a nil Registration is returned instead of an error if it does not exist.
+func (d RegistrationRepositoryDb) FindFromLoginDetails(un string, pw string) (*Registration, *errs.AppError) {
 	var registration Registration
 	findSql := "SELECT * FROM registrations WHERE username = ? AND password = ?"
 	if err := d.client.Get(&registration, findSql, un, pw); err != nil {
@@ -115,7 +136,9 @@ func (d RegistrationRepositoryDb) GetRegistrationFromLoginDetails(un string, pw 
 	return &registration, nil
 }
 
-func (d RegistrationRepositoryDb) GetRegistrationFromEmail(email string) (*Registration, *errs.AppError) {
+// FindFromEmail retrieves a Registration record using the given email. It is expected to exist, so an error is
+// returned if it does not exist.
+func (d RegistrationRepositoryDb) FindFromEmail(email string) (*Registration, *errs.AppError) {
 	var registration Registration
 	findSql := "SELECT * FROM registrations WHERE email = ?"
 	if err := d.client.Get(&registration, findSql, email); err != nil {
