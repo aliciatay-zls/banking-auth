@@ -50,16 +50,16 @@ func Start() {
 	ah := AuthHandler{service.NewDefaultAuthService(authRepositoryDb, registrationRepositoryDb, domain.NewRolePermissions())}
 	rh := RegistrationHandler{service.NewRegistrationService(registrationRepositoryDb, emailRepositoryDb)}
 
-	router.HandleFunc("/auth/login", ah.LoginHandler).Methods(http.MethodPost)
-	router.HandleFunc("/auth/logout", ah.LogoutHandler).Methods(http.MethodPost)
+	router.HandleFunc("/auth/login", ah.LoginHandler).Methods(http.MethodPost, http.MethodOptions)
+	router.HandleFunc("/auth/logout", ah.LogoutHandler).Methods(http.MethodPost, http.MethodOptions)
 	router.HandleFunc("/auth/verify", ah.VerifyHandler).Methods(http.MethodGet)
-	router.HandleFunc("/auth/refresh", ah.RefreshHandler).Methods(http.MethodPost)
-	router.HandleFunc("/auth/continue", ah.ContinueHandler).Methods(http.MethodPost)
+	router.HandleFunc("/auth/refresh", ah.RefreshHandler).Methods(http.MethodPost, http.MethodOptions)
+	router.HandleFunc("/auth/continue", ah.ContinueHandler).Methods(http.MethodPost, http.MethodOptions)
 
-	router.HandleFunc("/auth/register", rh.RegisterHandler).Methods(http.MethodPost)
-	router.HandleFunc("/auth/register/check", rh.CheckRegistrationHandler).Methods(http.MethodGet)
-	router.HandleFunc("/auth/register/resend", rh.ResendHandler).Methods(http.MethodGet, http.MethodPost)
-	router.HandleFunc("/auth/register/finish", rh.FinishRegistrationHandler).Methods(http.MethodPost)
+	router.HandleFunc("/auth/register", rh.RegisterHandler).Methods(http.MethodPost, http.MethodOptions)
+	router.HandleFunc("/auth/register/check", rh.CheckRegistrationHandler).Methods(http.MethodGet, http.MethodOptions)
+	router.HandleFunc("/auth/register/resend", rh.ResendHandler).Methods(http.MethodGet, http.MethodPost, http.MethodOptions)
+	router.HandleFunc("/auth/register/finish", rh.FinishRegistrationHandler).Methods(http.MethodPost, http.MethodOptions)
 
 	address := os.Getenv("SERVER_ADDRESS")
 	port := os.Getenv("SERVER_PORT")

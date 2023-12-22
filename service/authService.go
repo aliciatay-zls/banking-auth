@@ -177,8 +177,8 @@ func areTokensValid(tokenStrings dto.TokenStrings, shouldAccessTokenBeExpired bo
 			return nil, nil, appErr
 		}
 		if !isExpired {
-			logger.Error("Access token not expired yet")
-			return nil, nil, errs.NewAuthenticationError("Cannot generate new access token until current one expires")
+			logger.Error("Cannot generate new access token until current one expires")
+			return nil, nil, errs.NewAuthenticationError("access token not expired yet")
 		}
 	}
 
