@@ -37,14 +37,19 @@ func NewRegistrationService(regRepo domain.RegistrationRepository, emailRepo dom
 // If so, the request is rejected. Otherwise, it is saved to the db, and a one-time use JWT is generated to form
 // a confirmation link which is then emailed to the requester.
 func (s DefaultRegistrationService) Register(request dto.RegistrationRequest) (*dto.RegistrationResponse, *errs.AppError) {
-	registration := domain.NewRegistration(request)
+	if appErr := s.registrationRepo.IsEmailUsed(request.Email); appErr != nil {
+		return nil, appErr
+	}
+	if appErr := s.registrationRepo.IsUsernameTaken(request.Username); appErr != nil {
+		return nil, appErr
+	}
 
-	if appErr := s.registrationRepo.IsEmailUsed(registration.Email); appErr != nil {
+	hashedPw, appErr := domain.HashAndSaltPassword(request.Password)
+	if appErr != nil {
 		return nil, appErr
 	}
-	if appErr := s.registrationRepo.IsUsernameTaken(registration.Username); appErr != nil {
-		return nil, appErr
-	}
+
+	registration := domain.NewRegistration(request, hashedPw)
 
 	if err := s.registrationRepo.Save(registration); err != nil {
 		return nil, err

@@ -10,11 +10,10 @@ type RolePermissions struct {
 }
 
 func NewRolePermissions() RolePermissions {
-	rp := RolePermissions{map[string][]string{
+	return RolePermissions{map[string][]string{
 		RoleAdmin: {"GetAllCustomers", "GetCustomer", "GetAccountsForCustomer", "NewAccount", "NewTransaction"},
 		RoleUser:  {"GetCustomer", "GetAccountsForCustomer", "NewTransaction"},
 	}}
-	return rp
 }
 
 func (p RolePermissions) IsAuthorizedFor(role string, route string) bool {

@@ -8,9 +8,10 @@ import (
 )
 
 type Auth struct { //business/domain object //currently only 2 roles
-	Username   string         `db:"username"`
-	Role       string         `db:"role"`
-	CustomerId sql.NullString `db:"customer_id"`
+	Username       string         `db:"username"`
+	HashedPassword string         `db:"password"`
+	Role           string         `db:"role"`
+	CustomerId     sql.NullString `db:"customer_id"`
 }
 
 // IsRoleValid is similar to customClaims.go#isRoleValid.

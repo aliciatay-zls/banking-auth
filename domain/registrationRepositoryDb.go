@@ -95,7 +95,7 @@ func (d RegistrationRepositoryDb) IsUsernameTaken(un string) *errs.AppError {
 func (d RegistrationRepositoryDb) Save(reg Registration) *errs.AppError {
 	_, err := d.client.Exec(`INSERT INTO registrations 
     (email, name, date_of_birth, country, zipcode, username, password, role, created_on) VALUES (?,?,?,?,?,?,?,?,?)`,
-		reg.Email, reg.Name, reg.DateOfBirth, reg.Country, reg.Zipcode, reg.Username, reg.Password, reg.Role, reg.DateRegistered)
+		reg.Email, reg.Name, reg.DateOfBirth, reg.Country, reg.Zipcode, reg.Username, reg.HashedPassword, reg.Role, reg.DateRegistered)
 	if err != nil {
 		logger.Error("Error while saving registration: " + err.Error())
 		return errs.NewUnexpectedError("Unexpected database error")
@@ -125,14 +125,19 @@ func (d RegistrationRepositoryDb) UpdateLastEmailedInfo(reg Registration, timeSt
 // yet during login, so a nil Registration is returned instead of an error if it does not exist.
 func (d RegistrationRepositoryDb) FindFromLoginDetails(un string, pw string) (*Registration, *errs.AppError) {
 	var registration Registration
-	findSql := "SELECT * FROM registrations WHERE username = ? AND password = ?"
-	if err := d.client.Get(&registration, findSql, un, pw); err != nil {
+	findSql := "SELECT * FROM registrations WHERE username = ?"
+	if err := d.client.Get(&registration, findSql, un); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		logger.Error("Error while checking if a registration exists for the given login details: " + err.Error())
 		return nil, errs.NewUnexpectedError("Unexpected database error")
 	}
+
+	if !IsHashGivenPassword(registration.HashedPassword, pw) {
+		return nil, nil
+	}
+
 	return &registration, nil
 }
 
@@ -183,7 +188,7 @@ func (d RegistrationRepositoryDb) CreateNecessaryAccounts(reg *Registration, cre
 	}
 
 	_, err = tx.Exec("INSERT INTO users VALUES (?, ?, ?, ?, ?)",
-		reg.Username, reg.Password, reg.Role, newCustomerId, createTime)
+		reg.Username, reg.HashedPassword, reg.Role, newCustomerId, createTime)
 	if err != nil {
 		logger.Error("Error while creating user: " + err.Error())
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {

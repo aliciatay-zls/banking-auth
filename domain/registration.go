@@ -23,9 +23,9 @@ type Registration struct { //business/domain object
 	Zipcode     string
 	Status      string
 
-	Username string
-	Password string
-	Role     string
+	Username       string
+	HashedPassword string `db:"password"`
+	Role           string
 
 	EmailAttempts int `db:"email_attempts"` //to reset daily using pipeline
 
@@ -36,7 +36,7 @@ type Registration struct { //business/domain object
 
 // NewRegistration creates a new Registration object, filling all fields except CustomerId, Status and DateConfirmed,
 // each of which have default values in the db and are to be initialized at a later step through Confirm().
-func NewRegistration(req dto.RegistrationRequest) Registration {
+func NewRegistration(req dto.RegistrationRequest, hashedPw string) Registration {
 	return Registration{
 		Email:       req.Email,
 		Name:        req.Name,
@@ -44,9 +44,9 @@ func NewRegistration(req dto.RegistrationRequest) Registration {
 		Country:     req.Country,
 		Zipcode:     req.Zipcode,
 
-		Username: req.Username,
-		Password: req.Password,
-		Role:     RoleUser,
+		Username:       req.Username,
+		HashedPassword: hashedPw,
+		Role:           RoleUser,
 
 		DateRegistered: time.Now().Format(FormatDateTime),
 	}
@@ -81,9 +81,6 @@ func (r Registration) CanResendEmail() *errs.AppError {
 		logger.Error("Cannot resend email due to error while parsing current time to time object")
 		return errs.NewUnexpectedError("Unexpected server-side error")
 	}
-
-	logger.Info(lastEmailed.String())
-	logger.Info(currTime.String())
 
 	if currTime.Sub(lastEmailed) <= ResendEmailAllowedInterval {
 		logger.Error("Cannot resend email as attempts made are too frequent")

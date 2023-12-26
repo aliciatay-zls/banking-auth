@@ -25,16 +25,19 @@ func NewAuthRepositoryDb(dbClient *sqlx.DB) AuthRepositoryDb {
 	return AuthRepositoryDb{dbClient}
 }
 
-func (d AuthRepositoryDb) Authenticate(username string, password string) (*Auth, *errs.AppError) { //DB implements repo
+func (d AuthRepositoryDb) Authenticate(un string, pw string) (*Auth, *errs.AppError) { //DB implements repo
 	var auth Auth
-	getDetailsSql := `SELECT username, role, customer_id FROM users WHERE username = ? AND password = ?`
-	err := d.client.Get(&auth, getDetailsSql, username, password)
+	err := d.client.Get(&auth, `SELECT username, password, role, customer_id FROM users WHERE username = ?`, un)
 	if err != nil {
-		logger.Error("Error while querying/scanning details of user: " + err.Error())
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errs.NewAuthenticationError("Incorrect username or password")
 		}
+		logger.Error("Error while querying/scanning user: " + err.Error())
 		return nil, errs.NewUnexpectedError("Unexpected database error")
+	}
+
+	if !IsHashGivenPassword(auth.HashedPassword, pw) {
+		return nil, errs.NewAuthenticationError("Incorrect username or password")
 	}
 
 	return &auth, nil

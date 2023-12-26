@@ -17,9 +17,9 @@ type AuthService interface { //service (primary port)
 }
 
 type DefaultAuthService struct { //business/domain object
-	authRepo        domain.AuthRepository         //business/domain object depends on repo (repo is a field)
-	regRepo         domain.RegistrationRepository //additionally depends on another repo (is a field)
-	rolePermissions domain.RolePermissions        //additionally depends on another business/domain object (is a field)
+	authRepo         domain.AuthRepository         //business/domain object depends on repo (repo is a field)
+	registrationRepo domain.RegistrationRepository //additionally depends on another repo (is a field)
+	rolePermissions  domain.RolePermissions        //additionally depends on another business/domain object (is a field)
 }
 
 func NewDefaultAuthService(ar domain.AuthRepository, rr domain.RegistrationRepository, rp domain.RolePermissions) DefaultAuthService {
@@ -35,7 +35,7 @@ func (s DefaultAuthService) Login(request dto.LoginRequest) (*dto.LoginResponse,
 
 	auth, authErr = s.authRepo.Authenticate(request.Username, request.Password)
 	if authErr != nil {
-		registration, err := s.regRepo.FindFromLoginDetails(request.Username, request.Password)
+		registration, err := s.registrationRepo.FindFromLoginDetails(request.Username, request.Password)
 		if err != nil {
 			return nil, err
 		}
