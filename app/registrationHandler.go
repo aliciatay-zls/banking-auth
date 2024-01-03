@@ -14,10 +14,6 @@ type RegistrationHandler struct { //REST handler (adapter)
 }
 
 func (h RegistrationHandler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
-	if isPreflightRequest := enableCORS(w, r); isPreflightRequest {
-		return
-	}
-
 	var registrationRequest dto.RegistrationRequest
 	if err := json.NewDecoder(r.Body).Decode(&registrationRequest); err != nil {
 		logger.Error("Error while decoding json body of registration request: " + err.Error())
@@ -40,10 +36,6 @@ func (h RegistrationHandler) RegisterHandler(w http.ResponseWriter, r *http.Requ
 }
 
 func (h RegistrationHandler) CheckRegistrationHandler(w http.ResponseWriter, r *http.Request) {
-	if isPreflightRequest := enableCORS(w, r); isPreflightRequest {
-		return
-	}
-
 	tokenString := r.URL.Query().Get("ott")
 	if tokenString == "" {
 		logger.Error("No token in url")
@@ -65,10 +57,6 @@ func (h RegistrationHandler) CheckRegistrationHandler(w http.ResponseWriter, r *
 }
 
 func (h RegistrationHandler) ResendHandler(w http.ResponseWriter, r *http.Request) {
-	if isPreflightRequest := enableCORS(w, r); isPreflightRequest {
-		return
-	}
-
 	var resendRequest dto.ResendRequest
 	if r.Method == http.MethodGet {
 		resendRequest.Type = dto.ResendRequestTypeUsingToken
@@ -103,10 +91,6 @@ func (h RegistrationHandler) ResendHandler(w http.ResponseWriter, r *http.Reques
 }
 
 func (h RegistrationHandler) FinishRegistrationHandler(w http.ResponseWriter, r *http.Request) {
-	if isPreflightRequest := enableCORS(w, r); isPreflightRequest {
-		return
-	}
-
 	var request dto.FinishRegistrationRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		logger.Error("Error while decoding json body of finish registration request: " + err.Error())

@@ -66,7 +66,7 @@ func buildConfirmationURL(ott string) string {
 	addr := os.Getenv("FRONTEND_SERVER_ADDRESS")
 	port := os.Getenv("FRONTEND_SERVER_PORT")
 	u := url.URL{
-		Scheme: "http",
+		Scheme: "https",
 		Host:   fmt.Sprintf("%s:%s", addr, port),
 		Path:   "register/check",
 	}

@@ -76,13 +76,7 @@ func (r Registration) CanResendEmail() *errs.AppError {
 		return errs.NewUnexpectedError("Unexpected server-side error")
 	}
 
-	currTime, err := time.Parse(FormatDateTime, time.Now().Format(FormatDateTime))
-	if err != nil {
-		logger.Error("Cannot resend email due to error while parsing current time to time object")
-		return errs.NewUnexpectedError("Unexpected server-side error")
-	}
-
-	if currTime.Sub(lastEmailed) <= ResendEmailAllowedInterval {
+	if time.Now().Sub(lastEmailed) <= ResendEmailAllowedInterval {
 		logger.Error("Cannot resend email as attempts made are too frequent")
 		return errs.NewValidationError("Too many attempts")
 	}

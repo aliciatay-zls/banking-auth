@@ -14,10 +14,6 @@ type AuthHandler struct { //REST handler (adapter)
 }
 
 func (h AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
-	if isPreflightRequest := enableCORS(w, r); isPreflightRequest {
-		return
-	}
-
 	var loginRequest dto.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
 		logger.Error("Error while decoding json body of login request: " + err.Error())
@@ -35,10 +31,6 @@ func (h AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
-	if isPreflightRequest := enableCORS(w, r); isPreflightRequest {
-		return
-	}
-
 	var tokenStrings dto.TokenStrings
 	if err := json.NewDecoder(r.Body).Decode(&tokenStrings); err != nil {
 		writeJsonResponse(w, http.StatusBadRequest, errs.NewMessageObject(err.Error()))
@@ -79,10 +71,6 @@ func (h AuthHandler) VerifyHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h AuthHandler) RefreshHandler(w http.ResponseWriter, r *http.Request) {
-	if isPreflightRequest := enableCORS(w, r); isPreflightRequest {
-		return
-	}
-
 	var tokenStrings dto.TokenStrings
 	if err := json.NewDecoder(r.Body).Decode(&tokenStrings); err != nil {
 		logger.Error("Error while decoding json body of refresh request: " + err.Error())
@@ -104,10 +92,6 @@ func (h AuthHandler) RefreshHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h AuthHandler) ContinueHandler(w http.ResponseWriter, r *http.Request) {
-	if isPreflightRequest := enableCORS(w, r); isPreflightRequest {
-		return
-	}
-
 	var tokenStrings dto.TokenStrings
 	if err := json.NewDecoder(r.Body).Decode(&tokenStrings); err != nil {
 		logger.Error("Error while decoding json body of continue request: " + err.Error())
@@ -126,20 +110,6 @@ func (h AuthHandler) ContinueHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJsonResponse(w, http.StatusOK, response)
-}
-
-// enableCORS is called at the start of the handler of any exposed APIs in order to accept requests from the frontend
-// which is considered cross-origin. It then returns whether the request is a preflight one so that the caller
-// can return immediately for preflight requests.
-func enableCORS(w http.ResponseWriter, r *http.Request) bool {
-	w.Header().Add("Access-Control-Allow-Origin", "http://localhost:3000") //frontend domain
-	w.Header().Add("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-	w.Header().Add("Access-Control-Allow-Headers", "*")
-	if r.Method == http.MethodOptions {
-		writeJsonResponse(w, http.StatusOK, errs.NewMessageObject("all preflight requests currently accepted"))
-		return true
-	}
-	return false
 }
 
 func writeJsonResponse(w http.ResponseWriter, code int, data interface{}) {
