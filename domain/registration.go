@@ -5,8 +5,10 @@ import (
 	"errors"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/udemy-go-1/banking-auth/dto"
+	"github.com/udemy-go-1/banking-auth/formValidator"
 	"github.com/udemy-go-1/banking-lib/errs"
 	"github.com/udemy-go-1/banking-lib/logger"
+	"strings"
 	"time"
 )
 
@@ -39,9 +41,9 @@ type Registration struct { //business/domain object
 func NewRegistration(req dto.RegistrationRequest, hashedPw string) Registration {
 	return Registration{
 		Email:       req.Email,
-		Name:        req.Name,
+		Name:        strings.Join([]string{req.FirstName, req.LastName}, " "),
 		DateOfBirth: req.DateOfBirth,
-		Country:     req.Country,
+		Country:     formValidator.GetCountryFrom(req.CountryCode),
 		Zipcode:     req.Zipcode,
 
 		Username:       req.Username,
