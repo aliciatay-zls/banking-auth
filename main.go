@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/udemy-go-1/banking-auth/app"
-	"github.com/udemy-go-1/banking-auth/formValidator"
+	"github.com/udemy-go-1/banking-lib/formValidator"
 	"github.com/udemy-go-1/banking-lib/logger"
 )
 
