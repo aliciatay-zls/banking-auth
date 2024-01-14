@@ -2,6 +2,7 @@ package formValidator
 
 import (
 	"bufio"
+	"errors"
 	"github.com/go-playground/validator/v10"
 	"os"
 	"regexp"
@@ -59,6 +60,12 @@ func GetCountryFrom(code string) string {
 
 // Wrapped functions from go-playground/validator
 
-func Struct(s interface{}) error {
-	return appValidator.Struct(s)
+func Struct(s interface{}) validator.ValidationErrors {
+	errs := appValidator.Struct(s)
+	if errs != nil {
+		var errsArr validator.ValidationErrors
+		errors.As(errs, &errsArr)
+		return errsArr
+	}
+	return nil
 }

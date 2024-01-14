@@ -12,8 +12,8 @@ import (
 	"time"
 )
 
-const FormatDateTime = "2006-01-02 15:04:05"
-const ResendEmailAllowedAttempts = 11 //additional 1 attempt since during registration an email is already sent
+const FormatDateTime = "2006-01-02 15:04:05" //time.DateTime
+const ResendEmailAllowedAttempts = 11        //additional 1 attempt since during registration an email is already sent
 const ResendEmailAllowedInterval = time.Minute
 
 type Registration struct { //business/domain object
@@ -72,7 +72,13 @@ func (r Registration) CanResendEmail() *errs.AppError {
 		return errs.NewValidationError("Maximum daily attempts reached")
 	}
 
-	lastEmailed, err := time.Parse(FormatDateTime, r.DateLastEmailed)
+	loc, err := time.LoadLocation("Asia/Singapore")
+	if err != nil {
+		logger.Error("Cannot resend email due to error while loading local time")
+		return errs.NewUnexpectedError("Unexpected server-side error")
+	}
+
+	lastEmailed, err := time.ParseInLocation(FormatDateTime, r.DateLastEmailed, loc)
 	if err != nil {
 		logger.Error("Cannot resend email due to error while parsing last emailed time to time object")
 		return errs.NewUnexpectedError("Unexpected server-side error")
@@ -103,8 +109,6 @@ func (r Registration) GetOneTimeTokenClaims() OneTimeTokenClaims {
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(OneTimeTokenDuration)),
 		},
 		Email:          r.Email,
-		Name:           r.Name,
-		Username:       r.Username,
 		DateRegistered: r.DateRegistered,
 	}
 }

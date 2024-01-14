@@ -21,6 +21,11 @@ func (h AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if appErr := loginRequest.Validate(); appErr != nil {
+		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
+		return
+	}
+
 	response, appErr := h.service.Login(loginRequest)
 	if appErr != nil {
 		writeJsonResponse(w, appErr.Code, appErr.AsMessage())

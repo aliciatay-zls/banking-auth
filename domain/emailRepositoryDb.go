@@ -54,7 +54,7 @@ func (d EmailRepositoryDb) SendConfirmationEmail(rcptAddr string, link string) (
 func (d EmailRepositoryDb) buildEmail(rcptAddr string, link string) string {
 	return "From: " + d.senderAddr + "\r\n" +
 		"To: " + rcptAddr + "\r\n" +
-		"Subject: Welcome to BANK\r\n" +
+		"Subject: Email Confirmation [action required]\r\n" +
 		"\r\n" +
 		"Please click on the link below within the next 1 hour to complete your account registration:\n" +
 		link + "\n" +

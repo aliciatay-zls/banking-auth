@@ -1,8 +1,7 @@
 package dto
 
 import (
-	"errors"
-	"github.com/go-playground/validator/v10"
+	"fmt"
 	"github.com/udemy-go-1/banking-auth/formValidator"
 	"github.com/udemy-go-1/banking-lib/errs"
 	"github.com/udemy-go-1/banking-lib/logger"
@@ -32,10 +31,9 @@ func (r RegistrationRequest) Validate() *errs.AppError {
 		"Password":    "Please check that the Password meets the requirements.",
 	}
 
-	if err := formValidator.Struct(r); err != nil {
-		var errsArr validator.ValidationErrors
-		errors.As(err, &errsArr)
-		logger.Error("Registration request is invalid: " + errsArr[0].Error())
+	if errsArr := formValidator.Struct(r); errsArr != nil {
+		logger.Error(fmt.Sprintf("Registration request is invalid (%s) (%s)",
+			errsArr[0].Error(), errsArr[0].ActualTag()))
 		return errs.NewValidationError(errMsg[errsArr[0].Field()])
 	}
 

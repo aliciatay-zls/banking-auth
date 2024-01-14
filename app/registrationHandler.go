@@ -57,32 +57,25 @@ func (h RegistrationHandler) CheckRegistrationHandler(w http.ResponseWriter, r *
 }
 
 func (h RegistrationHandler) ResendHandler(w http.ResponseWriter, r *http.Request) {
-	var resendRequest dto.ResendRequest
+	var request dto.ResendRequest
 	if r.Method == http.MethodGet {
-		resendRequest.Type = dto.ResendRequestTypeUsingToken
-
-		resendRequest.TokenString = r.URL.Query().Get("ott")
-		if resendRequest.TokenString == "" {
-			logger.Error("No token in url")
-			writeJsonResponse(w, http.StatusBadRequest, errs.NewMessageObject(errs.MessageMissingToken))
-			return
-		}
+		request.Type = dto.ResendRequestTypeUsingToken
+		request.TokenString = r.URL.Query().Get("ott")
 	} else if r.Method == http.MethodPost {
-		resendRequest.Type = dto.ResendRequestTypeUsingEmail
-
-		if err := json.NewDecoder(r.Body).Decode(&resendRequest); err != nil {
+		request.Type = dto.ResendRequestTypeUsingEmail
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			logger.Error("Error while decoding json body of resend email POST request: " + err.Error())
 			writeJsonResponse(w, http.StatusBadRequest, errs.NewMessageObject(err.Error()))
 			return
 		}
-		if resendRequest.Email == "" {
-			logger.Error("Field(s) missing or empty in request body")
-			writeJsonResponse(w, http.StatusUnprocessableEntity, "Field missing or empty in request body: email")
-			return
-		}
 	}
 
-	if appErr := h.service.ResendLink(resendRequest); appErr != nil {
+	if appErr := request.Validate(); appErr != nil {
+		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
+		return
+	}
+
+	if appErr := h.service.ResendLink(request); appErr != nil {
 		writeJsonResponse(w, appErr.Code, appErr.AsMessage())
 		return
 	}
