@@ -35,8 +35,8 @@ github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
 github.com/stretchr/testify v1.8.2 h1:+h33VjcLVPDHtOdpUCuF+7gSuG3yGIftsP1YvFihtJ8=
 github.com/stretchr/testify v1.8.2/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
-github.com/udemy-go-1/banking-lib v1.7.0 h1:nq84MwZz/83v5kdqGhnDb/HUkBNxpVdC+gYuHIJxTMA=
-github.com/udemy-go-1/banking-lib v1.7.0/go.mod h1:3GqYkXU4A3354Pgmut5wV/YMKNt5I0IosT2128VgKTs=
+github.com/udemy-go-1/banking-lib v1.7.1 h1:7mDvBk+gxetoJE2GjRZzKnRfenpz377Pk4e73EsXU0I=
+github.com/udemy-go-1/banking-lib v1.7.1/go.mod h1:3GqYkXU4A3354Pgmut5wV/YMKNt5I0IosT2128VgKTs=
 go.uber.org/goleak v1.2.0 h1:xqgm/S+aQvhWFTtR0XK3Jvg7z8kGV8P4X14IzwN3Eqk=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=
 go.uber.org/multierr v1.11.0/go.mod h1:20+QtiLqy0Nd6FdQB9TLXag12DsQkrbs3htMFfDN80Y=

@@ -8,8 +8,8 @@ import (
 )
 
 type LoginRequest struct {
-	Username string `json:"username" validate:"un"`
-	Password string `json:"password" validate:"required,min=12,max=64,ascii"`
+	Username string `json:"username" validate:"required,max=20,ascii"`
+	Password string `json:"password" validate:"required,max=64,ascii"`
 }
 
 func (r LoginRequest) Validate() *errs.AppError {

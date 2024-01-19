@@ -12,19 +12,19 @@ type EmailRepository interface {
 	SendConfirmationEmail(string, string) (string, *errs.AppError)
 }
 
-type EmailRepositoryDb struct {
+type DefaultEmailRepository struct {
 	client     *smtp.Client
 	senderAddr string
 	disconnect func()
 }
 
-func NewEmailRepositoryDb(mailClient *smtp.Client, disconnectCallback func()) EmailRepositoryDb {
-	return EmailRepositoryDb{client: mailClient, senderAddr: "BANK@outlook.com", disconnect: disconnectCallback}
+func NewDefaultEmailRepository(mailClient *smtp.Client, disconnectCallback func()) DefaultEmailRepository {
+	return DefaultEmailRepository{client: mailClient, senderAddr: "BANK@outlook.com", disconnect: disconnectCallback}
 }
 
 // SendConfirmationEmail registers the sender and recipient with the SMTP server before writing the email and
 // closing the email writer.
-func (d EmailRepositoryDb) SendConfirmationEmail(rcptAddr string, link string) (string, *errs.AppError) {
+func (d DefaultEmailRepository) SendConfirmationEmail(rcptAddr string, link string) (string, *errs.AppError) {
 	if err := d.client.Mail(d.senderAddr); err != nil {
 		logger.Fatal("Error while starting mail transaction: " + err.Error())
 	}
@@ -51,7 +51,7 @@ func (d EmailRepositoryDb) SendConfirmationEmail(rcptAddr string, link string) (
 }
 
 // buildEmail forms the email using the recipient's email address and unique confirmation link.
-func (d EmailRepositoryDb) buildEmail(rcptAddr string, link string) string {
+func (d DefaultEmailRepository) buildEmail(rcptAddr string, link string) string {
 	return "From: " + d.senderAddr + "\r\n" +
 		"To: " + rcptAddr + "\r\n" +
 		"Subject: Email Confirmation [action required]\r\n" +

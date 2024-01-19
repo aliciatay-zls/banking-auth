@@ -41,7 +41,7 @@ func (d RegistrationRepositoryDb) IsEmailUsed(email string) *errs.AppError {
 	}
 	if isExists {
 		logger.Error("Customer with given email already exists")
-		return errs.NewAuthorizationError("Email is already used")
+		return errs.NewConflictError("Either the email has been used to register before or the username is already taken")
 	}
 
 	findRegistrationsSql := "SELECT EXISTS(SELECT 1 FROM registrations WHERE email = ?)"
@@ -51,19 +51,7 @@ func (d RegistrationRepositoryDb) IsEmailUsed(email string) *errs.AppError {
 	}
 	if isExists {
 		logger.Error("Registration with given email already exists")
-		errMsg := "Email is already registered for an account"
-
-		var confirmDate sql.NullString
-		checkSql := "SELECT confirmed_on FROM registrations WHERE email = ?"
-		if err := d.client.Get(&confirmDate, checkSql, email); err != nil {
-			logger.Error("Error while checking if registration has been confirmed: " + err.Error())
-			return errs.NewUnexpectedError("Unexpected database error")
-		}
-		if confirmDate.Valid { //confirmation date is not null
-			return errs.NewAuthorizationError(errMsg + " and already confirmed")
-		} else {
-			return errs.NewAuthorizationError(errMsg + " but not confirmed")
-		}
+		return errs.NewConflictError("Either the email has been used to register before or the username is already taken")
 	}
 
 	return nil //can proceed
@@ -85,7 +73,7 @@ func (d RegistrationRepositoryDb) IsUsernameTaken(un string) *errs.AppError {
 
 	if isExists {
 		logger.Error("User or registration with given username already exists")
-		return errs.NewConflictError("Username is already taken")
+		return errs.NewConflictError("Either the email has been used to register before or the username is already taken")
 	}
 
 	return nil //can proceed
