@@ -2,7 +2,6 @@ package domain
 
 import (
 	"database/sql"
-	"errors"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/udemy-go-1/banking-auth/dto"
 	"github.com/udemy-go-1/banking-lib/errs"
@@ -111,46 +110,4 @@ func (r Registration) GetOneTimeTokenClaims() OneTimeTokenClaims {
 		Email:          r.Email,
 		DateRegistered: r.DateRegistered,
 	}
-}
-
-func (r Registration) GenerateOneTimeToken() (string, *errs.AppError) {
-	claims := r.GetOneTimeTokenClaims()
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	ss, err := token.SignedString([]byte(SECRET))
-	if err != nil {
-		logger.Error("Error while signing one time token: " + err.Error())
-		return "", errs.NewUnexpectedError("Unexpected server-side error")
-	}
-	return ss, nil
-}
-
-func ValidateOneTimeToken(tokenString string, allowExpired bool) (*OneTimeTokenClaims, *errs.AppError) {
-	token, err := jwt.ParseWithClaims(
-		tokenString,
-		&OneTimeTokenClaims{},
-		func(token *jwt.Token) (interface{}, error) {
-			return []byte(SECRET), nil
-		},
-		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}),
-	)
-
-	if err != nil {
-		if !errors.Is(err, jwt.ErrTokenExpired) {
-			logger.Error("Error while parsing one time token: " + err.Error())
-			return nil, errs.NewAuthenticationError("Invalid OTT")
-		}
-		if errors.Is(err, jwt.ErrTokenExpired) && !allowExpired {
-			logger.Error("Expired OTT")
-			return nil, errs.NewAuthenticationError("Expired OTT")
-		}
-	}
-
-	claims, ok := token.Claims.(*OneTimeTokenClaims)
-	if !ok {
-		logger.Error("Error while type asserting one time token claims")
-		return nil, errs.NewUnexpectedError("Unexpected authorization error")
-	}
-
-	return claims, nil
 }

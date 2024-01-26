@@ -20,10 +20,11 @@ type RegistrationService interface { //service (primary port)
 type DefaultRegistrationService struct { //business/domain object
 	registrationRepo domain.RegistrationRepository
 	emailRepo        domain.EmailRepository
+	tokenRepo        domain.TokenRepository
 }
 
-func NewRegistrationService(regRepo domain.RegistrationRepository, emailRepo domain.EmailRepository) DefaultRegistrationService {
-	return DefaultRegistrationService{regRepo, emailRepo}
+func NewRegistrationService(regRepo domain.RegistrationRepository, emailRepo domain.EmailRepository, tokenRepo domain.TokenRepository) DefaultRegistrationService {
+	return DefaultRegistrationService{regRepo, emailRepo, tokenRepo}
 }
 
 // Register uses the given dto.RegistrationRequest to check whether any of the following cases are true:
@@ -79,7 +80,7 @@ func buildConfirmationURL(ott string) string {
 }
 
 func (s DefaultRegistrationService) createAndSendLink(reg domain.Registration) *errs.AppError {
-	ott, err := reg.GenerateOneTimeToken()
+	ott, err := s.tokenRepo.BuildToken(reg.GetOneTimeTokenClaims())
 	if err != nil {
 		return err
 	}
@@ -97,12 +98,16 @@ func (s DefaultRegistrationService) createAndSendLink(reg domain.Registration) *
 	return nil
 }
 
-// CheckRegistration checks that the given token is valid, tries to retrieve an existing Registration from the token
-// claims, then returns its status.
+// CheckRegistration uses the given token's claims to check that it is valid and to try retrieving an existing
+// Registration. The registration status is then returned.
 func (s DefaultRegistrationService) CheckRegistration(tokenString string) (bool, *errs.AppError) {
-	claims, err := domain.ValidateOneTimeToken(tokenString, false)
+	c, err := s.tokenRepo.GetClaimsFromToken(tokenString, domain.TokenTypeOneTime)
 	if err != nil {
 		return false, err
+	}
+	claims := c.(*domain.OneTimeTokenClaims)
+	if appErr := claims.CheckExpiry(); appErr != nil {
+		return false, appErr
 	}
 
 	registration, err := s.registrationRepo.FindFromEmail(claims.Email)
@@ -118,10 +123,11 @@ func (s DefaultRegistrationService) CheckRegistration(tokenString string) (bool,
 func (s DefaultRegistrationService) ResendLink(request dto.ResendRequest) *errs.AppError {
 	var email string
 	if request.Type == dto.ResendRequestTypeUsingToken {
-		claims, err := domain.ValidateOneTimeToken(request.TokenString, true)
+		c, err := s.tokenRepo.GetClaimsFromToken(request.TokenString, domain.TokenTypeOneTime)
 		if err != nil {
 			return err
 		}
+		claims := c.(*domain.OneTimeTokenClaims) //no need to check expiry
 		email = claims.Email
 	} else if request.Type == dto.ResendRequestTypeUsingEmail {
 		email = request.Email
@@ -143,12 +149,17 @@ func (s DefaultRegistrationService) ResendLink(request dto.ResendRequest) *errs.
 	return nil
 }
 
-// FinishRegistration double-checks that the given token is valid, retrieves an existing Registration from the token
-// claims, initializes the new user, and fills the remaining fields of the Registration and uses it to update the db.
+// FinishRegistration uses the given token's claims to double-check that it is valid, try retrieving an existing
+// Registration, initializing the new user in the db, and filling the remaining fields of the Registration which is
+// then used to update the db.
 func (s DefaultRegistrationService) FinishRegistration(tokenString string) *errs.AppError {
-	claims, err := domain.ValidateOneTimeToken(tokenString, false)
+	c, err := s.tokenRepo.GetClaimsFromToken(tokenString, domain.TokenTypeOneTime)
 	if err != nil {
 		return err
+	}
+	claims := c.(*domain.OneTimeTokenClaims)
+	if appErr := claims.CheckExpiry(); appErr != nil {
+		return appErr
 	}
 
 	registration, err := s.registrationRepo.FindFromEmail(claims.Email)

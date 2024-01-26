@@ -8,11 +8,11 @@ import (
 	"time"
 )
 
-type EmailRepository interface {
+type EmailRepository interface { //repo (secondary port)
 	SendConfirmationEmail(string, string) (string, *errs.AppError)
 }
 
-type DefaultEmailRepository struct {
+type DefaultEmailRepository struct { //adapter
 	client     *smtp.Client
 	senderAddr string
 	disconnect func()

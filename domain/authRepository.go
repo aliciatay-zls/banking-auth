@@ -10,7 +10,7 @@ import (
 
 type AuthRepository interface { //repo (secondary port)
 	Authenticate(string, string) (*Auth, *errs.AppError)
-	GenerateRefreshTokenAndSaveToStore(AuthToken) (string, *errs.AppError)
+	SaveRefreshTokenToStore(string) *errs.AppError
 	DeleteRefreshTokenFromStore(string) *errs.AppError
 	FindRefreshToken(string) (bool, *errs.AppError)
 	FindUser(string, string, string) *errs.AppError
@@ -43,20 +43,14 @@ func (d AuthRepositoryDb) Authenticate(un string, pw string) (*Auth, *errs.AppEr
 	return &auth, nil
 }
 
-func (d AuthRepositoryDb) GenerateRefreshTokenAndSaveToStore(authToken AuthToken) (string, *errs.AppError) {
-	var refreshToken string
-	var appErr *errs.AppError
-	if refreshToken, appErr = authToken.GenerateRefreshToken(); appErr != nil {
-		return "", appErr
-	}
-
+func (d AuthRepositoryDb) SaveRefreshTokenToStore(refreshToken string) *errs.AppError {
 	insertTokenSql := `INSERT INTO refresh_token_store (refresh_token) VALUES (?)`
 	if _, err := d.client.Exec(insertTokenSql, refreshToken); err != nil {
 		logger.Error("Error while storing refresh token: " + err.Error())
-		return "", errs.NewUnexpectedError("Unexpected database error")
+		return errs.NewUnexpectedError("Unexpected database error")
 	}
 
-	return refreshToken, nil
+	return nil
 }
 
 func (d AuthRepositoryDb) DeleteRefreshTokenFromStore(token string) *errs.AppError {

@@ -1,11 +1,9 @@
 package service
 
 import (
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/udemy-go-1/banking-auth/domain"
 	"github.com/udemy-go-1/banking-auth/dto"
 	"github.com/udemy-go-1/banking-lib/errs"
-	"github.com/udemy-go-1/banking-lib/logger"
 )
 
 type AuthService interface { //service (primary port)
@@ -20,10 +18,11 @@ type DefaultAuthService struct { //business/domain object
 	authRepo         domain.AuthRepository         //business/domain object depends on repo (repo is a field)
 	registrationRepo domain.RegistrationRepository //additionally depends on another repo (is a field)
 	rolePermissions  domain.RolePermissions        //additionally depends on another business/domain object (is a field)
+	tokenRepo        domain.TokenRepository        //additionally depends on another repo (is a field)
 }
 
-func NewDefaultAuthService(ar domain.AuthRepository, rr domain.RegistrationRepository, rp domain.RolePermissions) DefaultAuthService {
-	return DefaultAuthService{ar, rr, rp}
+func NewDefaultAuthService(authRepo domain.AuthRepository, regRepo domain.RegistrationRepository, rp domain.RolePermissions, tokenRepo domain.TokenRepository) DefaultAuthService {
+	return DefaultAuthService{authRepo, regRepo, rp, tokenRepo}
 }
 
 // Login authenticates the client's credentials, generating and sending back a new pair of access and refresh tokens.
@@ -40,7 +39,7 @@ func (s DefaultAuthService) Login(request dto.LoginRequest) (*dto.LoginResponse,
 			return nil, err
 		}
 		if registration != nil {
-			ott, genErr := registration.GenerateOneTimeToken()
+			ott, genErr := s.tokenRepo.BuildToken(registration.GetOneTimeTokenClaims())
 			if genErr != nil {
 				return nil, err
 			}
@@ -53,12 +52,17 @@ func (s DefaultAuthService) Login(request dto.LoginRequest) (*dto.LoginResponse,
 		return nil, errs.NewUnexpectedError("Unexpected server-side error")
 	}
 
-	authToken := domain.NewAuthToken(auth.AsAccessTokenClaims())
+	accessClaims := auth.AsAccessTokenClaims()
 	var accessToken, refreshToken string
-	if accessToken, appErr = authToken.GenerateAccessToken(); appErr != nil {
+	if accessToken, appErr = s.tokenRepo.BuildToken(accessClaims); appErr != nil {
 		return nil, appErr
 	}
-	if refreshToken, appErr = s.authRepo.GenerateRefreshTokenAndSaveToStore(authToken); appErr != nil {
+	refreshClaims := accessClaims.AsRefreshTokenClaims()
+	if refreshToken, appErr = s.tokenRepo.BuildToken(refreshClaims); appErr != nil {
+		return nil, appErr
+	}
+
+	if appErr = s.authRepo.SaveRefreshTokenToStore(refreshToken); appErr != nil {
 		return nil, appErr
 	}
 
@@ -72,32 +76,40 @@ func (s DefaultAuthService) Login(request dto.LoginRequest) (*dto.LoginResponse,
 }
 
 func (s DefaultAuthService) Logout(refreshToken string) *errs.AppError {
-	if _, appErr := domain.GetValidRefreshTokenFrom(refreshToken, true); appErr != nil {
+	c, appErr := s.tokenRepo.GetClaimsFromToken(refreshToken, domain.TokenTypeRefresh)
+	if appErr != nil {
+		return appErr
+	}
+	refreshClaims := c.(*domain.RefreshTokenClaims)
+
+	if appErr = refreshClaims.Validate(true); appErr != nil {
 		return appErr
 	}
 
 	return s.authRepo.DeleteRefreshTokenFromStore(refreshToken)
 }
 
-// Verify gets a valid, non-expired JWT from the token string. It then checks the client's
-// role privileges to access the route and if allowed, the client's identity.
+// Verify uses the claims from the given token string to check that the token is valid and non-expired.
+// It then checks the client's role privileges to access the route and if allowed, the client's identity.
 func (s DefaultAuthService) Verify(request dto.VerifyRequest) *errs.AppError { //business/domain object implements service
-	t, appErr := domain.GetValidAccessTokenFrom(request.TokenString, false)
+	c, appErr := s.tokenRepo.GetClaimsFromToken(request.TokenString, domain.TokenTypeAccess)
 	if appErr != nil {
 		return appErr
 	}
-
-	claims := t.Claims.(*domain.AccessTokenClaims)
+	accessClaims := c.(*domain.AccessTokenClaims)
+	if appErr = accessClaims.Validate(false); appErr != nil {
+		return appErr
+	}
 
 	//admin can access all routes (get role from token claims)
 	//user can only access some routes
-	if !s.rolePermissions.IsAuthorizedFor(claims.Role, request.RouteName) {
+	if !s.rolePermissions.IsAuthorizedFor(accessClaims.Role, request.RouteName) {
 		return errs.NewAuthorizationError("Trying to access unauthorized route")
 	}
 
 	//admin can access on behalf of all users
 	//user can only access his own routes (get customer_id and account_id from url, actual from token claims and db)
-	if claims.IsIdentityMismatch(request.CustomerId) {
+	if accessClaims.IsIdentityMismatch(request.CustomerId) {
 		return errs.NewAuthorizationError("Identity mismatch between token claims and request")
 	}
 
@@ -115,7 +127,8 @@ func (s DefaultAuthService) Verify(request dto.VerifyRequest) *errs.AppError { /
 func (s DefaultAuthService) Refresh(tokenStrings dto.TokenStrings) (*dto.RefreshResponse, *errs.AppError) {
 	var refreshClaims *domain.RefreshTokenClaims
 	var appErr *errs.AppError
-	if _, refreshClaims, appErr = areTokensValid(tokenStrings, true); appErr != nil {
+
+	if _, refreshClaims, appErr = s.areTokensValid(tokenStrings, true); appErr != nil {
 		return nil, appErr
 	}
 
@@ -127,9 +140,8 @@ func (s DefaultAuthService) Refresh(tokenStrings dto.TokenStrings) (*dto.Refresh
 		return nil, errs.NewAuthenticationErrorDueToRefreshToken()
 	}
 
-	authToken := domain.NewAuthToken(refreshClaims.AsAccessTokenClaims())
-	var newAccessToken string
-	if newAccessToken, appErr = authToken.GenerateAccessToken(); appErr != nil {
+	newAccessToken, appErr := s.tokenRepo.BuildToken(refreshClaims.AsAccessTokenClaims())
+	if appErr != nil {
 		return nil, appErr
 	}
 
@@ -142,7 +154,7 @@ func (s DefaultAuthService) CheckAlreadyLoggedIn(tokenStrings dto.TokenStrings) 
 	var accessClaims *domain.AccessTokenClaims
 	var appErr *errs.AppError
 
-	if accessClaims, _, appErr = areTokensValid(tokenStrings, false); appErr != nil {
+	if accessClaims, _, appErr = s.areTokensValid(tokenStrings, false); appErr != nil {
 		return nil, appErr
 	}
 
@@ -161,34 +173,33 @@ func (s DefaultAuthService) CheckAlreadyLoggedIn(tokenStrings dto.TokenStrings) 
 	return &dto.ContinueResponse{Role: accessClaims.Role, CustomerId: accessClaims.CustomerId}, nil
 }
 
-// areTokensValid checks that both tokens are valid and have the same claims. This function always considers an
-// expired refresh token to be invalid.
-func areTokensValid(tokenStrings dto.TokenStrings, shouldAccessTokenBeExpired bool) (*domain.AccessTokenClaims, *domain.RefreshTokenClaims, *errs.AppError) {
-	var accessToken, refreshToken *jwt.Token
-	var appErr *errs.AppError
-
-	if accessToken, appErr = domain.GetValidAccessTokenFrom(tokenStrings.AccessToken, shouldAccessTokenBeExpired); appErr != nil {
+// areTokensValid gets the claims for each token and checks that each are valid, before checking if both tokens
+// belong to the same person using their private claims. This function always considers an expired refresh token to
+// be invalid.
+func (s DefaultAuthService) areTokensValid(tokenStrings dto.TokenStrings, shouldAccessTokenBeExpired bool) (*domain.AccessTokenClaims, *domain.RefreshTokenClaims, *errs.AppError) {
+	c, appErr := s.tokenRepo.GetClaimsFromToken(tokenStrings.AccessToken, domain.TokenTypeAccess)
+	if appErr != nil {
 		return nil, nil, appErr
 	}
-	if shouldAccessTokenBeExpired {
-		var isExpired bool
-		isExpired, appErr = domain.IsExpired(accessToken)
-		if appErr != nil {
-			return nil, nil, appErr
-		}
-		if !isExpired {
-			logger.Error("Cannot generate new access token until current one expires")
-			return nil, nil, errs.NewAuthenticationError("access token not expired yet")
-		}
-	}
+	accessClaims := c.(*domain.AccessTokenClaims) //interface {} is map[string]interface {}, not *domain.AccessTokenClaims
 
-	if refreshToken, appErr = domain.GetValidRefreshTokenFrom(tokenStrings.RefreshToken, false); appErr != nil {
+	if appErr = accessClaims.Validate(shouldAccessTokenBeExpired); appErr != nil {
 		return nil, nil, appErr
 	}
 
-	if accessClaims, refreshClaims := domain.GetMatchedClaims(accessToken, refreshToken); accessClaims == nil || refreshClaims == nil {
-		return nil, nil, errs.NewAuthenticationErrorDueToRefreshToken()
-	} else {
-		return accessClaims, refreshClaims, nil
+	c, appErr = s.tokenRepo.GetClaimsFromToken(tokenStrings.RefreshToken, domain.TokenTypeRefresh)
+	if appErr != nil {
+		return nil, nil, appErr
 	}
+	refreshClaims := c.(*domain.RefreshTokenClaims)
+
+	if appErr = refreshClaims.Validate(false); appErr != nil {
+		return nil, nil, appErr
+	}
+
+	if appErr = domain.ArePrivateClaimsSame(accessClaims, refreshClaims); appErr != nil {
+		return nil, nil, appErr
+	}
+
+	return accessClaims, refreshClaims, nil
 }
