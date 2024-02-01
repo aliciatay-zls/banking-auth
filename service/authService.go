@@ -66,12 +66,16 @@ func (s DefaultAuthService) Login(request dto.LoginRequest) (*dto.LoginResponse,
 		return nil, appErr
 	}
 
+	homepage, appErr := auth.GetHomepage()
+	if appErr != nil {
+		return nil, appErr
+	}
+
 	return &dto.LoginResponse{
 		IsPendingConfirmation: false,
-		Role:                  auth.Role,
-		CustomerId:            auth.CustomerId.String,
 		AccessToken:           accessToken,
 		RefreshToken:          refreshToken,
+		Homepage:              homepage,
 	}, nil
 }
 
@@ -158,7 +162,8 @@ func (s DefaultAuthService) CheckAlreadyLoggedIn(tokenStrings dto.TokenStrings) 
 		return nil, appErr
 	}
 
-	if appErr = s.authRepo.FindUser(accessClaims.Username, accessClaims.Role, accessClaims.CustomerId); appErr != nil {
+	auth, appErr := s.authRepo.FindUser(accessClaims.Username, accessClaims.Role, accessClaims.CustomerId)
+	if appErr != nil {
 		return nil, appErr
 	}
 
@@ -170,7 +175,12 @@ func (s DefaultAuthService) CheckAlreadyLoggedIn(tokenStrings dto.TokenStrings) 
 		return nil, errs.NewAuthenticationErrorDueToRefreshToken()
 	}
 
-	return &dto.ContinueResponse{Role: accessClaims.Role, CustomerId: accessClaims.CustomerId}, nil
+	homepage, appErr := auth.GetHomepage()
+	if appErr != nil {
+		return nil, appErr
+	}
+
+	return &dto.ContinueResponse{Homepage: homepage}, nil
 }
 
 // areTokensValid gets the claims for each token and checks that each are valid, before checking if both tokens

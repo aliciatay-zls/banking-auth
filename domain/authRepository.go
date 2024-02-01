@@ -13,7 +13,7 @@ type AuthRepository interface { //repo (secondary port)
 	SaveRefreshTokenToStore(string) *errs.AppError
 	DeleteRefreshTokenFromStore(string) *errs.AppError
 	FindRefreshToken(string) (bool, *errs.AppError)
-	FindUser(string, string, string) *errs.AppError
+	FindUser(string, string, string) (*Auth, *errs.AppError)
 	IsAccountUnderCustomer(string, string) *errs.AppError
 }
 
@@ -85,26 +85,26 @@ func (d AuthRepositoryDb) FindRefreshToken(token string) (bool, *errs.AppError) 
 	return isExists, nil
 }
 
-func (d AuthRepositoryDb) FindUser(un string, role string, cid string) *errs.AppError {
-	var isExists bool
+func (d AuthRepositoryDb) FindUser(un string, role string, cid string) (*Auth, *errs.AppError) {
+	var auth Auth
 	var err error
 
 	if cid == "" {
-		findUserSql := `SELECT EXISTS(SELECT 1 FROM users WHERE username = ? AND role = ? AND customer_id IS NULL)`
-		err = d.client.Get(&isExists, findUserSql, un, role)
+		findUserSql := "SELECT username, password, role, customer_id FROM users WHERE username = ? AND role = ? AND customer_id IS NULL"
+		err = d.client.Get(&auth, findUserSql, un, role)
 	} else {
-		findUserSql := `SELECT EXISTS(SELECT 1 FROM users WHERE username = ? AND role = ? AND customer_id = ?)`
-		err = d.client.Get(&isExists, findUserSql, un, role, cid)
+		findUserSql := "SELECT username, password, role, customer_id FROM users WHERE username = ? AND role = ? AND customer_id = ?"
+		err = d.client.Get(&auth, findUserSql, un, role, cid)
 	}
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			logger.Error("User does not exist")
+			return nil, errs.NewAuthenticationError("Cannot continue")
+		}
 		logger.Error("Error while checking if user exists: " + err.Error())
-		return errs.NewUnexpectedError("Unexpected database error")
+		return nil, errs.NewUnexpectedError("Unexpected database error")
 	}
-	if !isExists {
-		logger.Error("User does not exist")
-		return errs.NewAuthenticationError("Cannot continue")
-	}
-	return nil
+	return &auth, nil
 }
 
 func (d AuthRepositoryDb) IsAccountUnderCustomer(aid string, cid string) *errs.AppError {

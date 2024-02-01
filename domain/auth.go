@@ -2,7 +2,9 @@ package domain
 
 import (
 	"database/sql"
+	"fmt"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/udemy-go-1/banking-lib/errs"
 	"github.com/udemy-go-1/banking-lib/logger"
 	"time"
 )
@@ -57,5 +59,17 @@ func (a *Auth) adminClaims() AccessTokenClaims {
 		},
 		Username: a.Username,
 		Role:     a.Role,
+	}
+}
+
+// GetHomepage returns the frontend route based on the client's role
+func (a *Auth) GetHomepage() (string, *errs.AppError) {
+	if a.Role == "admin" {
+		return "/customers", nil
+	} else if a.Role == "user" && a.CustomerId.Valid && a.CustomerId.String != "" {
+		return fmt.Sprintf("/customers/%s", a.CustomerId.String), nil
+	} else {
+		logger.Error("Unknown role or no customer ID")
+		return "", errs.NewUnexpectedError("Unexpected server-side error")
 	}
 }
