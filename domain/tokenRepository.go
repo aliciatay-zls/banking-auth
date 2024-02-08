@@ -3,12 +3,14 @@ package domain
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/x509"
 	"fmt"
 	"github.com/go-jose/go-jose/v3"
 	josejwt "github.com/go-jose/go-jose/v3/jwt"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/udemy-go-1/banking-lib/errs"
 	"github.com/udemy-go-1/banking-lib/logger"
+	"os"
 )
 
 type TokenRepository interface { //repo (secondary port)
@@ -22,10 +24,14 @@ type DefaultTokenRepository struct { //adapter
 }
 
 func NewDefaultTokenRepository() DefaultTokenRepository {
-	// Generate a public/private key pair.
-	rsaPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		logger.Fatal("Error while generating public/private key pair: " + err.Error())
+	rsaPrivateKey := getKey()
+	if rsaPrivateKey == nil {
+		//retry
+		generateKey()
+		rsaPrivateKey = getKey()
+		if rsaPrivateKey == nil { //problem is not with generation of new key
+			logger.Fatal("Failed to get key")
+		}
 	}
 
 	// Get instance of a signer using RSASSA-PSS (SHA512), using the private key.
@@ -60,6 +66,57 @@ func NewDefaultTokenRepository() DefaultTokenRepository {
 	return DefaultTokenRepository{builder, rsaPrivateKey}
 }
 
+// getKey tries to access and parse into a pointer to rsa.PrivateKey any file that exists at the path specified by
+// the ENCRYPTION_FILEPATH environment variable.
+func getKey() *rsa.PrivateKey {
+	keyFilePath := os.Getenv("ENCRYPTION_FILEPATH")
+
+	keyBytes, err := os.ReadFile(keyFilePath)
+	if err != nil {
+		logger.Error("Error while reading from key pair file: " + err.Error())
+		return nil
+	}
+
+	k, err := x509.ParsePKCS8PrivateKey(keyBytes)
+	if err != nil {
+		logger.Error("Error while parsing key pair: " + err.Error())
+		return nil
+	}
+
+	rsaPrivateKey, ok := k.(*rsa.PrivateKey)
+	if !ok {
+		logger.Error("Error while type asserting key pair to RSA private key type: " + err.Error())
+		return nil
+	}
+
+	return rsaPrivateKey
+}
+
+// generateKey tries to create a new RSA public/private key pair and write it as bytes in PEM format.
+// Any errors in the process causes the program to exit. Calling this method rewrites any file that exists at
+// the path specified by the ENCRYPTION_FILEPATH environment variable.
+func generateKey() {
+	logger.Info("Generating new key pair file...")
+
+	keyFilePath := os.Getenv("ENCRYPTION_FILEPATH")
+
+	rsaPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		logger.Fatal("Error while generating new key pair: " + err.Error())
+	}
+
+	var b []byte
+	b, err = x509.MarshalPKCS8PrivateKey(rsaPrivateKey)
+	if err != nil {
+		logger.Fatal("Error while marshalling new key pair: " + err.Error())
+	}
+	if err = os.WriteFile(keyFilePath, b, 0666); err != nil { //A text file has 666 permissions (file owner - group owner - other users), which grants read and write permission to everyone
+		logger.Fatal("Error while writing key pair to new file: " + err.Error())
+	}
+
+	logger.Info("Successfully created new key pair file.")
+}
+
 // BuildToken encodes the given claims into JWE/JWS, signs and encrypts, then serializes it into an encrypted JWT.
 func (r DefaultTokenRepository) BuildToken(claims jwt.Claims) (string, *errs.AppError) {
 	tokenStr, err := r.builder.Claims(claims).CompactSerialize()
@@ -80,7 +137,7 @@ func (r DefaultTokenRepository) GetClaimsFromToken(tokenStr string, claimsType s
 		return nil, errs.NewAuthenticationError(fmt.Sprintf("Invalid %s", claimsType))
 	}
 
-	nested, err := token.Decrypt(r.rsaPrivateKey) //check logged in: "Error while decrypting token: go-jose/go-jose: error in cryptographic primitive"
+	nested, err := token.Decrypt(r.rsaPrivateKey)
 	if err != nil {
 		logger.Error("Error while decrypting token: " + err.Error())
 		return nil, errs.NewAuthenticationError(fmt.Sprintf("Invalid %s", claimsType))

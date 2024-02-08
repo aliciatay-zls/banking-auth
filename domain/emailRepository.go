@@ -58,5 +58,5 @@ func (d DefaultEmailRepository) buildEmail(rcptAddr string, link string) string 
 		"\r\n" +
 		"Please click on the link below within the next 1 hour to complete your account registration:\n" +
 		link + "\n" +
-		"If it cannot be clicked, try copying it to the browser directly.\r\n"
+		"If it cannot be clicked, copy and paste it into the address bar of your web browser.\r\n"
 }

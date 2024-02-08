@@ -27,6 +27,7 @@ func checkEnvVars() {
 		"DB_ADDRESS",
 		"DB_PORT",
 		"DB_NAME",
+		"ENCRYPTION_FILEPATH",
 	}
 
 	for _, key := range envVars {

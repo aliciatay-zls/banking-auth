@@ -10,6 +10,7 @@ $env:DB_PASSWORD = "codecamp"
 $env:DB_ADDRESS = "localhost"
 $env:DB_PORT = "3306"
 $env:DB_NAME = "banking"
+$env:ENCRYPTION_FILEPATH = "keys/private_key.txt"
 
 # Run app
 go run main.go
