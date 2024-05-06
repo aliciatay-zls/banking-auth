@@ -62,7 +62,8 @@ func (s DefaultAuthService) Login(request dto.LoginRequest) (*dto.LoginResponse,
 		return nil, appErr
 	}
 
-	if appErr = s.authRepo.SaveRefreshTokenToStore(refreshToken); appErr != nil {
+	//hash before inserting to reduce and fix length of refresh token to 64 bytes (hex) for easier storage
+	if appErr = s.authRepo.SaveRefreshTokenToStore(s.tokenRepo.GetHash(refreshToken)); appErr != nil {
 		return nil, appErr
 	}
 
@@ -90,7 +91,7 @@ func (s DefaultAuthService) Logout(refreshToken string) *errs.AppError {
 		return appErr
 	}
 
-	return s.authRepo.DeleteRefreshTokenFromStore(refreshToken)
+	return s.authRepo.DeleteRefreshTokenFromStore(s.tokenRepo.GetHash(refreshToken))
 }
 
 // Verify uses the claims from the given token string to check that the token is valid and non-expired.
@@ -136,7 +137,7 @@ func (s DefaultAuthService) Refresh(tokenStrings dto.TokenStrings) (*dto.Refresh
 		return nil, appErr
 	}
 
-	isLoggedInBefore, appErr := s.authRepo.FindRefreshToken(tokenStrings.RefreshToken)
+	isLoggedInBefore, appErr := s.authRepo.FindRefreshToken(s.tokenRepo.GetHash(tokenStrings.RefreshToken))
 	if appErr != nil {
 		return nil, appErr
 	}
@@ -167,7 +168,7 @@ func (s DefaultAuthService) CheckAlreadyLoggedIn(tokenStrings dto.TokenStrings) 
 		return nil, appErr
 	}
 
-	isLoggedInBefore, appErr := s.authRepo.FindRefreshToken(tokenStrings.RefreshToken)
+	isLoggedInBefore, appErr := s.authRepo.FindRefreshToken(s.tokenRepo.GetHash(tokenStrings.RefreshToken))
 	if appErr != nil {
 		return nil, appErr
 	}

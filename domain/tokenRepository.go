@@ -3,6 +3,7 @@ package domain
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"fmt"
 	"github.com/go-jose/go-jose/v3"
@@ -15,6 +16,7 @@ import (
 
 type TokenRepository interface { //repo (secondary port)
 	BuildToken(jwt.Claims) (string, *errs.AppError)
+	GetHash(string) string
 	GetClaimsFromToken(string, string) (interface{}, *errs.AppError)
 }
 
@@ -125,6 +127,13 @@ func (r DefaultTokenRepository) BuildToken(claims jwt.Claims) (string, *errs.App
 	}
 
 	return tokenStr, nil
+}
+
+// GetHash returns the 64-byte hash of the token string.
+func (r DefaultTokenRepository) GetHash(tokenStr string) string {
+	h := sha256.New() //create new instance each time so that hash state is not preserved between calls
+	h.Write([]byte(tokenStr))
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 // GetClaimsFromToken parses the given tokenStr into an encrypted JWT, which is then decrypted into a nested JWT.

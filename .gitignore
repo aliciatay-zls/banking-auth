@@ -1,4 +1,10 @@
+# intellij files
 .idea/
-*.exe
-.iml
+*.iml
+
+# credentials
 certificates/
+keys/
+
+# byproducts generated
+*.exe
