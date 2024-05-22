@@ -5,6 +5,7 @@ import (
 	_ "github.com/go-sql-driver/mysql" //important
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
 	"github.com/udemy-go-1/banking-auth/domain"
 	"github.com/udemy-go-1/banking-auth/service"
 	"github.com/udemy-go-1/banking-lib/logger"
@@ -15,16 +16,31 @@ import (
 )
 
 func checkEnvVars() {
+	val, ok := os.LookupEnv("APP_ENV")
+	if !ok {
+		logger.Fatal("Environment variable APP_ENV not defined")
+	}
+
+	if val == "production" {
+		if err := godotenv.Load(".env"); err != nil {
+			logger.Fatal("Error loading .env file (needed in production mode)")
+		}
+	}
+
 	envVars := []string{
+		"APP_ENV",
 		"SERVER_ADDRESS",
 		"SERVER_PORT",
-		"MAILHOG_SERVER_ADDRESS",
-		"MAILHOG_SERVER_PORT",
+		"MAIL_SERVER_ADDRESS",
+		"MAIL_SERVER_PORT",
+		"MAIL_SERVER_USER",
+		"MAIL_SERVER_PASSWORD",
+		"MAIL_SENDER",
 		"FRONTEND_SERVER_ADDRESS",
 		"FRONTEND_SERVER_PORT",
 		"DB_USER",
 		"DB_PASSWORD",
-		"DB_ADDRESS",
+		"DB_HOST",
 		"DB_PORT",
 		"DB_NAME",
 		"ENCRYPTION_FILEPATH",
@@ -95,11 +111,11 @@ func Start() {
 func getDbClient() *sqlx.DB {
 	dbUser := os.Getenv("DB_USER")
 	dbPassword := os.Getenv("DB_PASSWORD")
-	dbAddress := os.Getenv("DB_ADDRESS")
+	dbHost := os.Getenv("DB_HOST")
 	dbPort := os.Getenv("DB_PORT")
 	dbName := os.Getenv("DB_NAME")
 
-	dataSource := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", dbUser, dbPassword, dbAddress, dbPort, dbName)
+	dataSource := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", dbUser, dbPassword, dbHost, dbPort, dbName)
 	db, err := sqlx.Open("mysql", dataSource)
 	if err != nil {
 		panic(err)
@@ -111,16 +127,16 @@ func getDbClient() *sqlx.DB {
 	return db
 }
 
-// getMailClient starts the smtp server and gets a client connected to it
+// getMailClient starts/connects to the smtp server and returns a client connected to it
 func getMailClient() (*smtp.Client, func()) {
-	serverAddr := os.Getenv("SERVER_ADDRESS")
-	mailhogPort := os.Getenv("MAILHOG_SERVER_PORT")
+	mailServerAddr := os.Getenv("MAIL_SERVER_ADDRESS")
+	mailServerPort := os.Getenv("MAIL_SERVER_PORT")
 
-	addr := fmt.Sprintf("%s:%s", serverAddr, mailhogPort)
-	logger.Info("Starting SMTP server...")
+	addr := fmt.Sprintf("%s:%s", mailServerAddr, mailServerPort)
+	logger.Info("Connecting to SMTP server...")
 	mailClient, err := smtp.Dial(addr)
 	if err != nil {
-		logger.Fatal("Error while starting SMTP server: " + err.Error())
+		logger.Fatal("Error while connecting to SMTP server: " + err.Error())
 	}
 
 	return mailClient, func() {

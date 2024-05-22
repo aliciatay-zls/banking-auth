@@ -8,6 +8,7 @@ import (
 	"github.com/udemy-go-1/banking-lib/logger"
 	"net"
 	"net/http"
+	"os"
 )
 
 type RateLimitingMiddleware struct {
@@ -49,7 +50,10 @@ func (m *RateLimitingMiddleware) RateLimitingHandler(next http.Handler) http.Han
 }
 
 func enableCORS(w http.ResponseWriter) {
-	w.Header().Add("Access-Control-Allow-Origin", "https://localhost:3000") //frontend domain
+	address := os.Getenv("FRONTEND_SERVER_ADDRESS")
+	port := os.Getenv("FRONTEND_SERVER_PORT")
+
+	w.Header().Add("Access-Control-Allow-Origin", fmt.Sprintf("https://%s:%s", address, port)) //frontend domain
 	w.Header().Add("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
 	w.Header().Add("Access-Control-Allow-Headers", "Content-Type, Authorization")
 }

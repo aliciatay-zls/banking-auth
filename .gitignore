@@ -2,9 +2,15 @@
 .idea/
 *.iml
 
-# credentials
+# environment variables
+.env
+
+# development mode
 certificates/
+
+# security
 keys/
 
 # byproducts generated
 *.exe
+*.log
