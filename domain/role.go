@@ -1,6 +1,6 @@
 package domain
 
-import "github.com/udemy-go-1/banking-lib/logger"
+import "github.com/aliciatay-zls/banking-lib/logger"
 
 const RoleAdmin = "admin"
 const RoleUser = "user"

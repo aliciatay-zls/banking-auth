@@ -6,11 +6,11 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"fmt"
+	"github.com/aliciatay-zls/banking-lib/errs"
+	"github.com/aliciatay-zls/banking-lib/logger"
 	"github.com/go-jose/go-jose/v3"
 	josejwt "github.com/go-jose/go-jose/v3/jwt"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/udemy-go-1/banking-lib/errs"
-	"github.com/udemy-go-1/banking-lib/logger"
 	"os"
 )
 

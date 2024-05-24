@@ -2,9 +2,9 @@ package service
 
 import (
 	"fmt"
-	"github.com/udemy-go-1/banking-auth/domain"
-	"github.com/udemy-go-1/banking-auth/dto"
-	"github.com/udemy-go-1/banking-lib/errs"
+	"github.com/aliciatay-zls/banking-auth/domain"
+	"github.com/aliciatay-zls/banking-auth/dto"
+	"github.com/aliciatay-zls/banking-lib/errs"
 	"net/url"
 	"os"
 	"time"

@@ -1,8 +1,8 @@
 package domain
 
 import (
-	"github.com/udemy-go-1/banking-lib/errs"
-	"github.com/udemy-go-1/banking-lib/logger"
+	"github.com/aliciatay-zls/banking-lib/errs"
+	"github.com/aliciatay-zls/banking-lib/logger"
 	"golang.org/x/crypto/bcrypt"
 )
 

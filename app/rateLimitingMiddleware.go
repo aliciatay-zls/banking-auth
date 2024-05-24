@@ -2,10 +2,10 @@ package app
 
 import (
 	"fmt"
+	"github.com/aliciatay-zls/banking-auth/domain"
+	"github.com/aliciatay-zls/banking-lib/errs"
+	"github.com/aliciatay-zls/banking-lib/logger"
 	"github.com/gorilla/mux"
-	"github.com/udemy-go-1/banking-auth/domain"
-	"github.com/udemy-go-1/banking-lib/errs"
-	"github.com/udemy-go-1/banking-lib/logger"
 	"net"
 	"net/http"
 	"os"

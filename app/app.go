@@ -2,13 +2,13 @@ package app
 
 import (
 	"fmt"
+	"github.com/aliciatay-zls/banking-auth/domain"
+	"github.com/aliciatay-zls/banking-auth/service"
+	"github.com/aliciatay-zls/banking-lib/logger"
 	_ "github.com/go-sql-driver/mysql" //important
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
-	"github.com/udemy-go-1/banking-auth/domain"
-	"github.com/udemy-go-1/banking-auth/service"
-	"github.com/udemy-go-1/banking-lib/logger"
 	"net/http"
 	"net/smtp"
 	"os"

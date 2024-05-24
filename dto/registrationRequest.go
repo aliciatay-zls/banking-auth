@@ -2,9 +2,9 @@ package dto
 
 import (
 	"fmt"
-	"github.com/udemy-go-1/banking-lib/errs"
-	"github.com/udemy-go-1/banking-lib/formValidator"
-	"github.com/udemy-go-1/banking-lib/logger"
+	"github.com/aliciatay-zls/banking-lib/errs"
+	"github.com/aliciatay-zls/banking-lib/formValidator"
+	"github.com/aliciatay-zls/banking-lib/logger"
 )
 
 type RegistrationRequest struct {

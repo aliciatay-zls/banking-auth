@@ -8,7 +8,7 @@
    * Production: create a `.env` file at project root with the same keys as the scripts in `scripts/`
 
 ## Running the app (Development)
-1. Ensure the db has been started in the [other repo](https://github.com/udemy-go-1/banking)
+1. Ensure the db has been started in the [other repo](https://github.com/aliciatay-zls/banking)
 
 2. Open this repo in another project window.
 
@@ -39,3 +39,9 @@
    | GET    | https://localhost:8181/auth/register/resend | ott                                        |                                                                                                                                                                                                                            | Will send a new confirmation link to the same email used in the registration (retrieved from the token)                                                                                                                                        |
    | POST   |                                             |                                            | {"email": "test@testmail.com"}                                                                                                                                                                                             | Will send a new confirmation link to the same email used in the registration                                                                                                                                                                   |
    | POST   | https://localhost:8181/auth/register/finish |                                            | {"one_time_token": ...}                                                                                                                                                                                                    | Will complete the registration process                                                                                                                                                                                                         |
+
+5. Update all packages periodically to the latest version:
+   ```
+   go get -u all
+   go mod tidy
+   ```

@@ -2,10 +2,10 @@ package app
 
 import (
 	"encoding/json"
-	"github.com/udemy-go-1/banking-auth/dto"
-	"github.com/udemy-go-1/banking-auth/service"
-	"github.com/udemy-go-1/banking-lib/errs"
-	"github.com/udemy-go-1/banking-lib/logger"
+	"github.com/aliciatay-zls/banking-auth/dto"
+	"github.com/aliciatay-zls/banking-auth/service"
+	"github.com/aliciatay-zls/banking-lib/errs"
+	"github.com/aliciatay-zls/banking-lib/logger"
 	"net/http"
 )
 

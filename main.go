@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/udemy-go-1/banking-auth/app"
-	"github.com/udemy-go-1/banking-lib/formValidator"
-	"github.com/udemy-go-1/banking-lib/logger"
+	"github.com/aliciatay-zls/banking-auth/app"
+	"github.com/aliciatay-zls/banking-lib/formValidator"
+	"github.com/aliciatay-zls/banking-lib/logger"
 )
 
 func main() {

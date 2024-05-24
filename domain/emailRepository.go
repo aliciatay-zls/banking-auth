@@ -3,8 +3,8 @@ package domain
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/udemy-go-1/banking-lib/errs"
-	"github.com/udemy-go-1/banking-lib/logger"
+	"github.com/aliciatay-zls/banking-lib/errs"
+	"github.com/aliciatay-zls/banking-lib/logger"
 	"net/smtp"
 	"os"
 	"time"
