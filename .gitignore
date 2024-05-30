@@ -9,7 +9,8 @@
 certificates/
 
 # security
-keys/
+keys/*
+!keys/.gitkeep
 
 # byproducts generated
 *.exe

@@ -1,4 +1,8 @@
-# Go Banking Web App - Backend Auth Server
+# Banking Web App - backend auth server
+This repo contains code for the backend auth server.
+
+The backend resource server [(separate repo)](https://github.com/aliciatay-zls/banking) and most of the auth server (added some features) were
+built under the Udemy course ["REST based microservices API development in Golang"](https://www.udemy.com/course/rest-based-microservices-api-development-in-go-lang/).
 
 ## Setup
 1. Install MailHog: https://github.com/mailhog/MailHog
