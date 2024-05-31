@@ -1,7 +1,6 @@
 package service
 
 import (
-	"fmt"
 	"github.com/aliciatay-zls/banking-auth/domain"
 	"github.com/aliciatay-zls/banking-auth/dto"
 	"github.com/aliciatay-zls/banking-lib/errs"
@@ -64,11 +63,9 @@ func (s DefaultRegistrationService) Register(request dto.RegistrationRequest) (*
 }
 
 func buildConfirmationURL(ott string) string {
-	addr := os.Getenv("FRONTEND_SERVER_ADDRESS")
-	port := os.Getenv("FRONTEND_SERVER_PORT")
 	u := url.URL{
 		Scheme: "https",
-		Host:   fmt.Sprintf("%s:%s", addr, port),
+		Host:   os.Getenv("FRONTEND_SERVER_DOMAIN"),
 		Path:   "register/check",
 	}
 
