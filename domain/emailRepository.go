@@ -15,71 +15,75 @@ type EmailRepository interface { //repo (secondary port)
 }
 
 type DefaultEmailRepository struct { //adapter
-	client         *smtp.Client
 	serverUser     string
 	serverPassword string
 	senderEmail    string
-	disconnect     func()
 }
 
-func NewDefaultEmailRepository(mailClient *smtp.Client, disconnectCallback func()) DefaultEmailRepository {
+func NewDefaultEmailRepository() DefaultEmailRepository {
 	return DefaultEmailRepository{
-		client:         mailClient,
 		serverUser:     os.Getenv("MAIL_SERVER_USER"),
 		serverPassword: os.Getenv("MAIL_SERVER_PASSWORD"),
 		senderEmail:    os.Getenv("MAIL_SENDER"),
-		disconnect:     disconnectCallback,
 	}
 }
 
-// SendConfirmationEmail registers the sender and recipient with the SMTP server before writing the email and
-// closing the email writer. It returns the time the email was sent.
+// SendConfirmationEmail opens a new connection with the remote SMTP server, initiates use of TLS and authenticates
+// itself to the server in production mode, registers the sender and recipient, then sends the email body.
+// It returns the time the email was sent.
 func (d DefaultEmailRepository) SendConfirmationEmail(rcptAddr string, link string) (string, *errs.AppError) {
-	if os.Getenv("APP_ENV") == "production" {
-		mailServerAddr := os.Getenv("MAIL_SERVER_ADDRESS")
-		mailServerPort := os.Getenv("MAIL_SERVER_PORT")
-		addr := fmt.Sprintf("%s:%s", mailServerAddr, mailServerPort)
+	mailServerAddr := os.Getenv("MAIL_SERVER_ADDRESS")
+	mailServerPort := os.Getenv("MAIL_SERVER_PORT")
+	addr := fmt.Sprintf("%s:%s", mailServerAddr, mailServerPort)
 
-		//inform server to use TLS connection from here on
+	client, err := smtp.Dial(addr)
+	if err != nil {
+		logger.Error("Error while connecting to SMTP server: " + err.Error())
+		return "", errs.NewUnexpectedError("Unexpected error sending confirmation email")
+	}
+
+	if os.Getenv("APP_ENV") == "production" {
+		logger.Info("Initiating TLS session with remote SMTP server...")
 		tlsConfig := &tls.Config{ServerName: mailServerAddr}
-		if err := d.client.StartTLS(tlsConfig); err != nil {
+		if err = client.StartTLS(tlsConfig); err != nil {
 			logger.Error("Error initiating TLS session: " + err.Error())
 			return "", errs.NewUnexpectedError("Unexpected error sending confirmation email")
 		}
 
-		//build email to be sent
-		msg := []byte(d.buildEmail(rcptAddr, link))
-
-		//login to remote mail server
+		logger.Info("Authenticating with remote SMTP server...")
 		auth := smtp.PlainAuth("", d.serverUser, d.serverPassword, mailServerAddr)
+		if err = client.Auth(auth); err != nil {
+			logger.Error("Error authenticating with mail server: " + err.Error())
+			return "", errs.NewUnexpectedError("Unexpected error sending confirmation email")
+		}
+	}
 
-		//send email to 1 recipient
-		if err := smtp.SendMail(addr, auth, d.senderEmail, []string{rcptAddr}, msg); err != nil {
-			logger.Error(fmt.Sprintf("Error sending email to %s: %s", rcptAddr, err.Error()))
-			return "", errs.NewUnexpectedError("Unexpected error sending confirmation email")
-		}
-	} else {
-		if err := d.client.Mail(d.senderEmail); err != nil {
-			logger.Fatal("Error while starting mail transaction: " + err.Error())
-		}
-		if err := d.client.Rcpt(rcptAddr); err != nil {
-			logger.Error(fmt.Sprintf("Error sending email to %s: %s", rcptAddr, err.Error()))
-			return "", errs.NewUnexpectedError("Unexpected error sending confirmation email")
-		}
+	if err = client.Mail(d.senderEmail); err != nil {
+		logger.Error("Error while setting the sender: " + err.Error())
+		return "", errs.NewUnexpectedError("Unexpected error sending confirmation email")
+	}
+	if err = client.Rcpt(rcptAddr); err != nil {
+		logger.Error(fmt.Sprintf("Error setting the recipient %s: %s", rcptAddr, err.Error()))
+		return "", errs.NewUnexpectedError("Unexpected error sending confirmation email")
+	}
 
-		wc, err := d.client.Data()
-		if err != nil {
-			logger.Error("Error getting writer: " + err.Error())
-			return "", errs.NewUnexpectedError("Unexpected error sending confirmation email")
-		}
-		if _, err = wc.Write([]byte(d.buildEmail(rcptAddr, link))); err != nil {
-			logger.Error("Error writing email: " + err.Error())
-			return "", errs.NewUnexpectedError("Unexpected error sending confirmation email")
-		}
-		if err = wc.Close(); err != nil {
-			logger.Error("Error closing writer: " + err.Error())
-			return "", errs.NewUnexpectedError("Unexpected error sending confirmation email")
-		}
+	wc, err := client.Data()
+	if err != nil {
+		logger.Error("Error getting writer: " + err.Error())
+		return "", errs.NewUnexpectedError("Unexpected error sending confirmation email")
+	}
+	if _, err = wc.Write([]byte(d.buildEmail(rcptAddr, link))); err != nil {
+		logger.Error("Error sending email body: " + err.Error())
+		return "", errs.NewUnexpectedError("Unexpected error sending confirmation email")
+	}
+	if err = wc.Close(); err != nil {
+		logger.Error("Error closing writer: " + err.Error())
+		return "", errs.NewUnexpectedError("Unexpected error sending confirmation email")
+	}
+
+	if err = client.Quit(); err != nil {
+		logger.Error("Error while closing connection to SMTP server: " + err.Error())
+		return "", errs.NewUnexpectedError("Unexpected error sending confirmation email")
 	}
 
 	return time.Now().Format(FormatDateTime), nil

@@ -10,7 +10,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 	"net/http"
-	"net/smtp"
 	"os"
 	"time"
 )
@@ -59,14 +58,13 @@ func checkEnvVars() {
 func Start() {
 	checkEnvVars()
 
-	mailClient, disconnectCallback := getMailClient()
-
 	router := mux.NewRouter()
 
 	dbClient := getDbClient()
 	authRepositoryDb := domain.NewAuthRepositoryDb(dbClient)
 	registrationRepositoryDb := domain.NewRegistrationRepositoryDb(dbClient)
-	emailRepository := domain.NewDefaultEmailRepository(mailClient, disconnectCallback)
+	emailRepository := domain.NewDefaultEmailRepository()
+
 	tokenRepository := domain.NewDefaultTokenRepository()
 	ah := AuthHandler{service.NewDefaultAuthService(
 		authRepositoryDb,
@@ -136,26 +134,4 @@ func getDbClient() *sqlx.DB {
 	db.SetMaxIdleConns(10)
 
 	return db
-}
-
-// getMailClient starts/connects to the smtp server and returns a client connected to it
-func getMailClient() (*smtp.Client, func()) {
-	mailServerAddr := os.Getenv("MAIL_SERVER_ADDRESS")
-	mailServerPort := os.Getenv("MAIL_SERVER_PORT")
-
-	addr := fmt.Sprintf("%s:%s", mailServerAddr, mailServerPort)
-	logger.Info("Connecting to SMTP server...")
-	mailClient, err := smtp.Dial(addr)
-	if err != nil {
-		logger.Fatal("Error while connecting to SMTP server: " + err.Error())
-	}
-
-	return mailClient, func() {
-		defer func() {
-			logger.Info("Disconnecting from SMTP server...")
-			if err = mailClient.Close(); err != nil {
-				logger.Fatal("Error while closing connection to SMTP server: " + err.Error())
-			}
-		}()
-	}
 }
