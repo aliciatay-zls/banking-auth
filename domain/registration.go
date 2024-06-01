@@ -14,6 +14,8 @@ import (
 const FormatDateTime = "2006-01-02 15:04:05" //time.DateTime
 const ResendEmailAllowedAttempts = 11        //additional 1 attempt since during registration an email is already sent
 const ResendEmailAllowedInterval = time.Minute
+const RetrySendEmailAttempts = 3
+const RetrySendEmailInterval = time.Second * 5
 
 type Registration struct { //business/domain object
 	Email       string

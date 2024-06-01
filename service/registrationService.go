@@ -51,11 +51,16 @@ func (s DefaultRegistrationService) Register(request dto.RegistrationRequest) (*
 
 	registration := domain.NewRegistration(request, hashedPw)
 
-	if err := s.registrationRepo.Save(registration); err != nil {
+	timeEmailed, err := s.createAndSendLink(registration)
+	if err != nil {
 		return nil, err
 	}
 
-	if err := s.createAndSendLink(registration); err != nil {
+	if err = s.registrationRepo.Save(registration); err != nil {
+		return nil, err
+	}
+
+	if err = s.registrationRepo.UpdateLastEmailedInfo(registration, timeEmailed); err != nil {
 		return nil, err
 	}
 
@@ -76,23 +81,25 @@ func buildConfirmationURL(ott string) string {
 	return u.String()
 }
 
-func (s DefaultRegistrationService) createAndSendLink(reg domain.Registration) *errs.AppError {
+// createAndSendLink creates a confirmation link based on the given registration and emails it, retrying every
+// domain.RetrySendEmailInterval seconds for a maximum of domain.RetrySendEmailAttempts times before giving up.
+func (s DefaultRegistrationService) createAndSendLink(reg domain.Registration) (string, *errs.AppError) {
 	ott, err := s.tokenRepo.BuildToken(reg.GetOneTimeTokenClaims())
 	if err != nil {
-		return err
+		return "", err
 	}
 	link := buildConfirmationURL(ott)
 
 	timeEmailed, err := s.emailRepo.SendConfirmationEmail(reg.Email, link)
+	for i := 0; err != nil && i < domain.RetrySendEmailAttempts; i++ {
+		time.Sleep(domain.RetrySendEmailInterval)
+		timeEmailed, err = s.emailRepo.SendConfirmationEmail(reg.Email, link)
+	}
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	if err = s.registrationRepo.UpdateLastEmailedInfo(reg, timeEmailed); err != nil {
-		return err
-	}
-
-	return nil
+	return timeEmailed, nil
 }
 
 // CheckRegistration uses the given token's claims to check that it is valid and to try retrieving an existing
@@ -139,7 +146,12 @@ func (s DefaultRegistrationService) ResendLink(request dto.ResendRequest) *errs.
 		return err
 	}
 
-	if err = s.createAndSendLink(*registration); err != nil {
+	timeEmailed, err := s.createAndSendLink(*registration)
+	if err != nil {
+		return err
+	}
+
+	if err = s.registrationRepo.UpdateLastEmailedInfo(*registration, timeEmailed); err != nil {
 		return err
 	}
 
