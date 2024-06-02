@@ -3,7 +3,7 @@ module github.com/aliciatay-zls/banking-auth
 go 1.20
 
 require (
-	github.com/aliciatay-zls/banking-lib v1.8.0
+	github.com/aliciatay-zls/banking-lib v1.8.2
 	github.com/go-jose/go-jose/v3 v3.0.3
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/golang-jwt/jwt/v5 v5.2.1
