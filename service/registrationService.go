@@ -176,7 +176,7 @@ func (s DefaultRegistrationService) FinishRegistration(tokenString string) *errs
 		return err
 	}
 
-	createTime := time.Now().Format(domain.FormatDateTime)
+	createTime := time.Now().UTC().Format(domain.FormatDateTime)
 	customerId, err := s.registrationRepo.CreateNecessaryAccounts(registration, createTime)
 	if err != nil {
 		return err

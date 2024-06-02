@@ -44,7 +44,7 @@ func (a *Auth) AsAccessTokenClaims() AccessTokenClaims {
 func (a *Auth) userClaims() AccessTokenClaims {
 	return AccessTokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(AccessTokenDuration)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(AccessTokenDuration)),
 		},
 		Username:   a.Username,
 		Role:       a.Role,
@@ -55,7 +55,7 @@ func (a *Auth) userClaims() AccessTokenClaims {
 func (a *Auth) adminClaims() AccessTokenClaims {
 	return AccessTokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(AccessTokenDuration)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(AccessTokenDuration)),
 		},
 		Username: a.Username,
 		Role:     a.Role,

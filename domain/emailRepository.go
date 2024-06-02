@@ -86,7 +86,7 @@ func (d DefaultEmailRepository) SendConfirmationEmail(rcptAddr string, link stri
 		return "", errs.NewUnexpectedError("Unexpected error sending confirmation email")
 	}
 
-	return time.Now().Format(FormatDateTime), nil
+	return time.Now().UTC().Format(FormatDateTime), nil
 }
 
 // buildEmail forms the email using the recipient's email address and unique confirmation link.

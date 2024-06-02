@@ -51,7 +51,7 @@ func NewRegistration(req dto.RegistrationRequest, hashedPw string) Registration 
 		HashedPassword: hashedPw,
 		Role:           RoleUser,
 
-		DateRegistered: time.Now().Format(FormatDateTime),
+		DateRegistered: time.Now().UTC().Format(FormatDateTime),
 	}
 }
 
@@ -73,19 +73,12 @@ func (r Registration) CanResendEmail() *errs.AppError {
 		return errs.NewValidationError("Maximum daily attempts reached")
 	}
 
-	loc, err := time.LoadLocation("Asia/Singapore")
+	lastEmailed, err := time.Parse(FormatDateTime, r.DateLastEmailed)
 	if err != nil {
-		logger.Error("Cannot resend email due to error while loading local time")
+		logger.Error("Cannot resend email due to error while parsing time last emailed: " + err.Error())
 		return errs.NewUnexpectedError("Unexpected server-side error")
 	}
-
-	lastEmailed, err := time.ParseInLocation(FormatDateTime, r.DateLastEmailed, loc)
-	if err != nil {
-		logger.Error("Cannot resend email due to error while parsing last emailed time to time object")
-		return errs.NewUnexpectedError("Unexpected server-side error")
-	}
-
-	if time.Now().Sub(lastEmailed) <= ResendEmailAllowedInterval {
+	if time.Now().UTC().Sub(lastEmailed) <= ResendEmailAllowedInterval { //no need lastEmailed.UTC(): alr stored in UTC
 		logger.Error("Cannot resend email as attempts made are too frequent")
 		return errs.NewValidationError("Too many attempts")
 	}
@@ -107,7 +100,7 @@ func (r Registration) Confirm(id string, date string) *Registration {
 func (r Registration) GetOneTimeTokenClaims() OneTimeTokenClaims {
 	return OneTimeTokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(OneTimeTokenDuration)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(OneTimeTokenDuration)),
 		},
 		Email:          r.Email,
 		DateRegistered: r.DateRegistered,

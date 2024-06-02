@@ -33,7 +33,7 @@ func (r *DefaultVisitorRepository) GetVisitor(ip string) *Visitor {
 		r.visitorsMap[ip] = visitor
 		return visitor
 	}
-	v.LastSeen = time.Now()
+	v.LastSeen = time.Now().UTC()
 	return v
 }
 
@@ -44,7 +44,7 @@ func (r *DefaultVisitorRepository) Cleanup() {
 
 		r.mu.Lock()
 		for k, v := range r.visitorsMap {
-			if time.Now().Sub(v.LastSeen) > LastSeenBeforeCleanupInterval {
+			if time.Now().UTC().Sub(v.LastSeen) > LastSeenBeforeCleanupInterval {
 				delete(r.visitorsMap, k)
 			}
 		}

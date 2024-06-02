@@ -39,7 +39,7 @@ type OneTimeTokenClaims struct {
 // The token must be expired to be considered valid during the process of refreshing it (wantExpired is true).
 // Otherwise, it should not be expired.
 func (c *AccessTokenClaims) Validate(wantExpired bool) *errs.AppError {
-	isExpired := !c.ExpiresAt.After(time.Now())
+	isExpired := !c.ExpiresAt.After(time.Now().UTC())
 	if !isExpired && wantExpired {
 		logger.Error("Cannot generate new access token until current one expires")
 		return errs.NewAuthenticationError("access token not expired yet")
@@ -60,7 +60,7 @@ func (c *AccessTokenClaims) Validate(wantExpired bool) *errs.AppError {
 // The expiry of a refresh token is ignored during the process of logging out (allowExpired is true).
 // Otherwise, an expired refresh token is always considered an invalid token.
 func (c *RefreshTokenClaims) Validate(allowExpired bool) *errs.AppError {
-	isExpired := !c.ExpiresAt.After(time.Now())
+	isExpired := !c.ExpiresAt.After(time.Now().UTC())
 	if isExpired && !allowExpired {
 		logger.Error("Expired refresh token")
 		return errs.NewAuthenticationErrorDueToRefreshToken()
@@ -75,7 +75,7 @@ func (c *RefreshTokenClaims) Validate(allowExpired bool) *errs.AppError {
 
 // CheckExpiry ensures that the one-time token is not expired as that would mean it is invalid.
 func (c *OneTimeTokenClaims) CheckExpiry() *errs.AppError {
-	if !c.ExpiresAt.After(time.Now()) {
+	if !c.ExpiresAt.After(time.Now().UTC()) {
 		logger.Error("Expired OTT")
 		return errs.NewAuthenticationError("expired OTT")
 	}
@@ -119,7 +119,7 @@ func (c *AccessTokenClaims) IsIdentityMismatch(customerId string) bool {
 func (c *AccessTokenClaims) AsRefreshTokenClaims() RefreshTokenClaims {
 	return RefreshTokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(RefreshTokenDuration)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(RefreshTokenDuration)),
 		},
 		TokenType:  TokenTypeRefresh,
 		Username:   c.Username,
@@ -131,7 +131,7 @@ func (c *AccessTokenClaims) AsRefreshTokenClaims() RefreshTokenClaims {
 func (c *RefreshTokenClaims) AsAccessTokenClaims() AccessTokenClaims {
 	return AccessTokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(AccessTokenDuration)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(AccessTokenDuration)),
 		},
 		Username:   c.Username,
 		Role:       c.Role,

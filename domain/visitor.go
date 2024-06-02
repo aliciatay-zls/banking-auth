@@ -18,6 +18,6 @@ func NewVisitor(ip string) *Visitor {
 	return &Visitor{
 		IPAddr:   ip,
 		Limiter:  rate.NewLimiter(1, 1), //strictly 1 request per second
-		LastSeen: time.Now(),
+		LastSeen: time.Now().UTC(),
 	}
 }
