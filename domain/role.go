@@ -11,7 +11,7 @@ type RolePermissions struct {
 
 func NewRolePermissions() RolePermissions {
 	return RolePermissions{map[string][]string{
-		RoleAdmin: {"GetAllCustomers", "GetCustomer", "GetAccountsForCustomer", "NewAccount", "NewTransaction"},
+		RoleAdmin: {"GetCustomer", "GetAccountsForCustomer", "NewTransaction", "GetAllCustomers", "NewAccount"},
 		RoleUser:  {"GetCustomer", "GetAccountsForCustomer", "NewTransaction"},
 	}}
 }
